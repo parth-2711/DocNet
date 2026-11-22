@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default Deny (AGENTS.md Section 4 & SECURITY_MODEL.md Section 7)
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Encrypted document ciphertext binaries (ENCRYPTION.md & DATABASE_SCHEMA.md Section 21)
+    // Structure: users/{uid}/documents/{documentId}/versions/{versionId}.bin
+    match /users/{uid}/documents/{documentId}/versions/{versionId}.bin {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Temporary upload sessions
+    match /users/{uid}/uploads/{sessionId}/{filename} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+

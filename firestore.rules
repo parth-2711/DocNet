@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny on all collections (AGENTS.md Section 4 & SECURITY_MODEL.md Section 7)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // --- Users Collection ---
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid);
+
+      match /devices/{deviceId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /keys/{epoch} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // --- Personal Documents Collection ---
+    match /personalDocuments/{documentId} {
+      function isDocOwner() {
+        return isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+      }
+
+      allow read: if isAuthenticated() && (
+        resource.data.ownerUid == request.auth.uid ||
+        exists(/databases/$(database)/documents/personalDocuments/$(documentId)/permissions/$(request.auth.uid))
+      );
+      allow create: if isAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isDocOwner();
+
+      match /versions/{versionId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/personalDocuments/$(documentId)).data.ownerUid == request.auth.uid ||
+          exists(/databases/$(database)/documents/personalDocuments/$(documentId)/permissions/$(request.auth.uid))
+        );
+        allow create: if isDocOwner();
+        allow update, delete: if false; // Immutable version history (VER-001)
+      }
+
+      match /permissions/{permissionId} {
+        allow read: if isDocOwner() || (isAuthenticated() && resource.data.granteeId == request.auth.uid);
+        allow write: if isDocOwner();
+      }
+
+      match /keyEnvelopes/{envelopeId} {
+        allow read: if isAuthenticated() && (
+          isDocOwner() || resource.data.recipientId == request.auth.uid
+        );
+        allow write: if isDocOwner();
+      }
+    }
+
+    // --- Families Collection ---
+    match /families/{familyId} {
+      function isFamilyMember() {
+        return exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+      }
+
+      function isFamilyOwner() {
+        return get(/databases/$(database)/documents/families/$(familyId)).data.ownerUid == request.auth.uid;
+      }
+
+      allow read: if isAuthenticated() && isFamilyMember();
+      allow create: if isAuthenticated() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isFamilyOwner();
+      allow delete: if isFamilyOwner();
+
+      match /members/{memberUid} {
+        allow read: if isAuthenticated() && isFamilyMember();
+        allow write: if isFamilyOwner();
+      }
+
+      match /invitations/{invitationId} {
+        allow read: if isAuthenticated();
+        allow write: if isFamilyOwner();
+      }
+
+      match /vaultDocuments/{documentId} {
+        allow read: if isAuthenticated() && isFamilyMember();
+        allow write: if isAuthenticated() && isFamilyMember();
+      }
+
+      match /activity/{activityId} {
+        allow read: if isAuthenticated() && isFamilyMember();
+        allow create: if isAuthenticated() && isFamilyMember() && request.resource.data.actorUid == request.auth.uid;
+        allow update, delete: if false; // Audit logs are immutable (AUDIT-001)
+      }
+    }
+
+    // --- Document Requests Collection (PRD.md 6.8 & DATABASE_SCHEMA.md Section 15) ---
+    match /documentRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.requesterUid == request.auth.uid ||
+        resource.data.recipientUid == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.requesterUid == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.requesterUid == request.auth.uid ||
+        resource.data.recipientUid == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && resource.data.requesterUid == request.auth.uid;
+    }
+  }
+}
+

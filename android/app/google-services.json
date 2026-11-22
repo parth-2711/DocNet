@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1075845695667",
+    "project_id": "docnet-f0102",
+    "storage_bucket": "docnet-f0102.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1075845695667:android:2bb55ce8626bbbf6f488c6",
+        "android_client_info": {
+          "package_name": "com.pgdeveloper.docnet"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1075845695667-ed69if9qjhrcmho6hh4rbacbvit9eo0k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pgdeveloper.docnet",
+            "certificate_hash": "95b778784a1da20bb3760d11ce69d6c88413271d"
+          }
+        },
+        {
+          "client_id": "1075845695667-juvjrfhk4iokek1lmg1t2ab455lfdh90.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKUhRQzKf2uQ4ZtFM6Ih0h9GA2ABbqnR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1075845695667-juvjrfhk4iokek1lmg1t2ab455lfdh90.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

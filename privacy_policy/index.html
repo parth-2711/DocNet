@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FamilyVault - Legal & Privacy Portal</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #2563eb;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --badge-bg: #e0f2fe;
+      --badge-text: #0369a1;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #3b82f6;
+        --primary-light: #60a5fa;
+        --bg: #090d16;
+        --card-bg: #111827;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: #1f2937;
+        --badge-bg: #1e293b;
+        --badge-text: #38bdf8;
+      }
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 680px;
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 32px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+    .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    p {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 28px;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      text-align: left;
+    }
+    @media (max-width: 550px) {
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .portal-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .portal-card:hover {
+      border-color: var(--primary-light);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .portal-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .portal-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      flex-grow: 1;
+    }
+    .portal-card span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary-light);
+    }
+    footer {
+      margin-top: 32px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🛡️</div>
+    <h1>FamilyVault</h1>
+    <p>Zero-Knowledge Encrypted Document & Family Security Vault</p>
+
+    <div class="cards-grid">
+      <a href="privacy-policy.html" class="portal-card">
+        <h3>🔒 Privacy Policy</h3>
+        <p>Review how your personal data, zero-knowledge encryption, and local device keys are handled.</p>
+        <span>Read Privacy Policy &rarr;</span>
+      </a>
+
+      <a href="delete-account.html" class="portal-card">
+        <h3>🗑️ Delete Account</h3>
+        <p>Learn how to permanently delete your account and stored vault data in-app or via web request.</p>
+        <span>Request Deletion &rarr;</span>
+      </a>
+    </div>
+
+    <footer>
+      &copy; 2026 FamilyVault (Package: <code>com.pgdeveloper.docnet</code>) &bull; Developer: PG Developer
+    </footer>
+  </div>
+</body>
+</html>
+

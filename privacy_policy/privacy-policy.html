@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - FamilyVault</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #2563eb;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --accent: #0284c7;
+      --badge-bg: #e0f2fe;
+      --badge-text: #0369a1;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #3b82f6;
+        --primary-light: #60a5fa;
+        --bg: #090d16;
+        --card-bg: #111827;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: #1f2937;
+        --accent: #38bdf8;
+        --badge-bg: #1e293b;
+        --badge-text: #38bdf8;
+      }
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.65;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 840px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 24px 18px;
+      }
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--badge-bg);
+      color: var(--badge-text);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 20px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .meta {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 32px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--primary-light);
+      padding-left: 12px;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+    p, li {
+      color: var(--text-muted);
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 24px;
+      margin-bottom: 16px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    .highlight-box {
+      background: var(--badge-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .highlight-box p {
+      color: var(--badge-text);
+      font-weight: 500;
+      margin-bottom: 0;
+    }
+    a {
+      color: var(--primary-light);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .nav-links {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Zero-Knowledge Security</span>
+      <h1>Privacy Policy for FamilyVault</h1>
+      <div class="meta">
+        <strong>Application:</strong> FamilyVault (Package: <code>com.pgdeveloper.docnet</code>)<br>
+        <strong>Developer:</strong> PG Developer<br>
+        <strong>Last Updated:</strong> November 10, 2026
+      </div>
+    </header>
+
+    <div class="highlight-box">
+      <p>🛡️ <strong>Zero-Knowledge Commitment:</strong> FamilyVault encrypts all documents and sensitive metadata directly on your device using authenticated AES-256-GCM encryption before syncing. We do not possess the decryption keys to your files and cannot access, view, share, or sell your documents.</p>
+    </div>
+
+    <h2>1. Introduction</h2>
+    <p>FamilyVault ("we", "our", or "the App") is committed to protecting your privacy. This Privacy Policy describes how your information is collected, used, and safeguarded when you use our mobile application and related services.</p>
+
+    <h2>2. Information We Collect</h2>
+    <h3>A. Account Information</h3>
+    <ul>
+      <li><strong>Email Address & Display Name:</strong> When registering via email or signing in with Google, we collect your email address and display name to identify your account and authenticate device sessions.</li>
+      <li><strong>Authentication Tokens:</strong> Secure OAuth tokens used to communicate securely with authentication servers.</li>
+    </ul>
+
+    <h3>B. Encrypted Vault Documents & Metadata</h3>
+    <ul>
+      <li><strong>Encrypted Binary Blobs:</strong> All uploaded files (PDFs, images, identity documents) are encrypted locally using AES-256-GCM authenticated cipher before transmission or storage.</li>
+      <li><strong>Wrapped Key Envelopes:</strong> Cryptographic document encryption keys (DEKs) sealed exclusively for authorized recipients.</li>
+      <li><strong>Encrypted Metadata:</strong> Document titles, categories, and tags are encrypted on-device.</li>
+    </ul>
+
+    <h3>C. Device & Security Information</h3>
+    <ul>
+      <li><strong>Device Identifiers:</strong> A locally generated device ID to coordinate multi-device synchronization and session authorization.</li>
+      <li><strong>Biometric Credentials:</strong> Biometric authentication (fingerprint/face unlock) is handled exclusively by the Android operating system hardware keystore (BiometricPrompt API). <strong>The App never receives, stores, or transmits your biometric data.</strong></li>
+    </ul>
+
+    <h2>3. Information We Do NOT Collect</h2>
+    <ul>
+      <li>We do NOT collect unencrypted copies of your documents.</li>
+      <li>We do NOT collect or store your vault master password or plaintext cryptographic keys.</li>
+      <li>We do NOT track your precise physical GPS location.</li>
+      <li>We do NOT sell, rent, or monetize your personal data to third parties, advertisers, or data brokers.</li>
+    </ul>
+
+    <h2>4. How We Use Your Information</h2>
+    <ul>
+      <li>To authenticate your identity across your devices.</li>
+      <li>To synchronize your encrypted document vault across authorized family members and sessions.</li>
+      <li>To generate localized audit and activity logs so you can review vault access history.</li>
+      <li>To safeguard the integrity and security of your account and files.</li>
+    </ul>
+
+    <h2>5. Third-Party Services</h2>
+    <p>FamilyVault utilizes reputable infrastructure providers strictly for core functionality:</p>
+    <ul>
+      <li><strong>Google Sign-In & Firebase Authentication (Google LLC):</strong> Facilitates secure user account creation and OAuth authentication. Privacy Policy: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a>.</li>
+      <li><strong>Android Biometric & Keystore API:</strong> Used locally on your device for hardware-backed key protection and quick unlock.</li>
+    </ul>
+
+    <h2>6. Data Storage, Retention & Deletion</h2>
+    <ul>
+      <li><strong>Retention:</strong> Your encrypted data is stored only as long as you maintain an active account.</li>
+      <li><strong>Document Trash:</strong> Soft-deleted documents can be restored or permanently removed at your discretion.</li>
+      <li><strong>Account Deletion:</strong> You have the unconditional right to delete your account and all associated data at any time. When deleted, all account profiles, device sessions, encryption envelopes, and stored encrypted documents are permanently destroyed.</li>
+      <li><strong>Web Deletion Portal:</strong> You can request account deletion directly within the App or via our <a href="delete-account.html">Account Deletion Request Page</a>.</li>
+    </ul>
+
+    <h2>7. Security Measures</h2>
+    <p>We implement industry-standard cryptographic engineering:</p>
+    <ul>
+      <li>Authenticated AES-256-GCM symmetric encryption for all document payloads.</li>
+      <li>Argon2id key derivation function for master keys.</li>
+      <li>Hardware-backed storage for cryptographic seeds via Android Keystore.</li>
+      <li>TLS 1.3 encrypted transport for all network traffic.</li>
+    </ul>
+
+    <h2>8. Children's Privacy</h2>
+    <p>FamilyVault is not directed to individuals under the age of 13. We do not knowingly collect personal information from children under 13.</p>
+
+    <h2>9. Changes to This Privacy Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated "Last Updated" date.</p>
+
+    <h2>10. Contact Us</h2>
+    <p>If you have any questions, inquiries, or privacy concerns regarding FamilyVault, please reach out to us:</p>
+    <ul>
+      <li><strong>Email:</strong> <a href="mailto:vtpbca60@gmail.com">vtpbca60@gmail.com</a></li>
+      <li><strong>Developer:</strong> PG Developer (Parth Godhani)</li>
+    </ul>
+
+    <footer>
+      <div class="nav-links">
+        <a href="privacy-policy.html">Privacy Policy</a> &bull;
+        <a href="delete-account.html">Delete Account Request</a>
+      </div>
+      <p>&copy; 2026 FamilyVault (com.pgdeveloper.docnet). All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>
+
