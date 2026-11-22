@@ -138,7 +138,27 @@ class FamilyController extends StateNotifier<FamilyState> {
 
       if (family != null) {
         final rawMembers = await familyRepo.getMembers(family.familyId);
-        for (final m in rawMembers) {
+        final membersList = List<FamilyMember>.from(rawMembers);
+
+        // Ensure the family space owner is always included in the members list
+        if (!membersList.any((m) => m.uid == family.ownerUid)) {
+          final ownerMember = FamilyMember(
+            uid: family.ownerUid,
+            familyId: family.familyId,
+            displayName: (family.ownerUid == currentUserUid &&
+                    currentDisplayName.isNotEmpty &&
+                    currentDisplayName != 'User')
+                ? currentDisplayName
+                : 'Family Owner',
+            email: (family.ownerUid == currentUserUid) ? currentUserEmail : '',
+            role: FamilyRole.owner,
+            joinedAt: family.createdAt,
+          );
+          await familyRepo.addMember(ownerMember);
+          membersList.insert(0, ownerMember);
+        }
+
+        for (final m in membersList) {
           if (m.uid == currentUserUid) {
             final isDummyEmail =
                 m.email.isEmpty ||
@@ -191,14 +211,6 @@ class FamilyController extends StateNotifier<FamilyState> {
       var outgoing = <FamilyInvitation>[];
       if (family != null) {
         outgoing = await invitationRepo.getOutgoingInvitations(family.familyId);
-        // Ensure pending outgoing invitations are synced to Firestore so other devices see them
-        for (final inv in outgoing) {
-          if (inv.status == InvitationStatus.pending) {
-            try {
-              await invitationRepo.saveInvitation(inv);
-            } catch (_) {}
-          }
-        }
       }
 
       state = state.copyWith(
@@ -406,6 +418,15 @@ class FamilyController extends StateNotifier<FamilyState> {
         await familyRepo.saveFamily(targetFamily);
       }
 
+      // If user had a solo placeholder family with 1 member, clear it
+      if (state.family != null &&
+          state.family!.familyId != invitation.familyId &&
+          state.members.length <= 1) {
+        try {
+          await familyRepo.removeFamily(state.family!.familyId);
+        } catch (_) {}
+      }
+
       await familyRepo.addMember(newMember);
       await invitationRepo.updateInvitationStatus(
         invitationId: invitationId,
@@ -456,6 +477,44 @@ class FamilyController extends StateNotifier<FamilyState> {
       await loadFamily();
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
+      rethrow;
+    }
+  }
+
+  /// Allows the current user (if non-owner) to voluntarily leave their current family space.
+  Future<void> leaveFamily() async {
+    if (state.family == null) return;
+    if (state.family!.ownerUid == currentUserUid) {
+      throw const FormatException(
+        'The owner cannot leave the family group. Delete the space or transfer ownership instead.',
+      );
+    }
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await familyRepo.removeMember(
+        familyId: state.family!.familyId,
+        uid: currentUserUid,
+      );
+
+      if (activityRepo != null) {
+        await activityRepo!.logEvent(
+          ActivityEvent(
+            activityId: const Uuid().v4(),
+            familyId: state.family!.familyId,
+            eventType: ActivityEventType.familyMemberRemoved,
+            actorUid: currentUserUid,
+            targetMemberUid: currentUserUid,
+            summary: '$currentDisplayName left the family space "${state.family!.name}"',
+            timestamp: DateTime.now().toUtc(),
+          ),
+        );
+      }
+
+      state = const FamilyState();
+      await loadFamily();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }

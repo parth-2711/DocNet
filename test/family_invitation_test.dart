@@ -265,5 +265,92 @@ void main() {
         isFalse,
       );
     });
+
+    test('When recipient accepts invitation, inviter outgoing invitations no longer show it as pending', () async {
+      await inviterController.createFamily('Alice Family');
+      await inviterController.sendInvitation(
+        recipientEmail: 'bob@example.com',
+        role: FamilyRole.member,
+      );
+
+      expect(inviterController.state.outgoingInvitations.length, equals(1));
+
+      // Bob accepts
+      final incoming = await invitationRepo.getIncomingInvitations(
+        recipientUid: 'uid-user-2',
+        recipientEmail: 'bob@example.com',
+      );
+      await invitationRepo.updateInvitationStatus(
+        invitationId: incoming.first.invitationId,
+        status: InvitationStatus.accepted,
+      );
+
+      // Inviter reloads family
+      await inviterController.loadFamily();
+      final pendingInvites = inviterController.state.outgoingInvitations
+          .where((inv) => inv.status == InvitationStatus.pending)
+          .toList();
+      expect(pendingInvites, isEmpty);
+    });
+
+    test('When recipient declines invitation, inviter outgoing invitations show it as declined', () async {
+      await inviterController.createFamily('Alice Family');
+      await inviterController.sendInvitation(
+        recipientEmail: 'bob@example.com',
+        role: FamilyRole.member,
+      );
+
+      final incoming = await invitationRepo.getIncomingInvitations(
+        recipientUid: 'uid-user-2',
+        recipientEmail: 'bob@example.com',
+      );
+      await invitationRepo.updateInvitationStatus(
+        invitationId: incoming.first.invitationId,
+        status: InvitationStatus.declined,
+      );
+
+      await inviterController.loadFamily();
+      final declinedInvites = inviterController.state.outgoingInvitations
+          .where((inv) => inv.status == InvitationStatus.declined)
+          .toList();
+      expect(declinedInvites.length, equals(1));
+      expect(declinedInvites.first.recipientEmail, equals('bob@example.com'));
+    });
+
+    test('Member can leave family space and owner removing member clears them', () async {
+      await inviterController.createFamily('Alice Family');
+      await inviterController.sendInvitation(
+        recipientEmail: 'bob@example.com',
+        role: FamilyRole.member,
+      );
+
+      final incoming = await invitationRepo.getIncomingInvitations(
+        recipientUid: 'uid-user-2',
+        recipientEmail: 'bob@example.com',
+      );
+
+      final recipientController = FamilyController(
+        familyRepo: familyRepo,
+        invitationRepo: invitationRepo,
+        userProfileRepo: userProfileRepo,
+        createFamilyUseCase: createFamilyUseCase,
+        currentUserUid: 'uid-user-2',
+        currentDisplayName: 'Bob Recipient',
+        currentUserEmail: 'bob@example.com',
+      );
+
+      await recipientController.acceptInvitation(incoming.first.invitationId);
+      expect(recipientController.state.family, isNotNull);
+      expect(recipientController.state.members.length, equals(2));
+
+      // Bob leaves family space voluntarily
+      await recipientController.leaveFamily();
+      expect(recipientController.state.family, isNull);
+      expect(recipientController.state.members, isEmpty);
+
+      // Alice now only has 1 member (herself)
+      await inviterController.loadFamily();
+      expect(inviterController.state.members.length, equals(1));
+    });
   });
 }

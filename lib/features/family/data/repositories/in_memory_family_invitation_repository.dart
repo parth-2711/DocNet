@@ -42,7 +42,8 @@ class InMemoryFamilyInvitationRepository implements FamilyInvitationRepository {
   Future<List<FamilyInvitation>> getOutgoingInvitations(String familyId) async {
     final results = _invitations.values.where((inv) {
       return inv.familyId == familyId &&
-          inv.status == InvitationStatus.pending;
+          (inv.status == InvitationStatus.pending ||
+           inv.status == InvitationStatus.declined);
     }).toList();
 
     results.sort((a, b) => b.createdAt.compareTo(a.createdAt));

@@ -1191,18 +1191,71 @@ class FamilyScreen extends ConsumerWidget {
                               ),
                               trailing: !isOwner
                                   ? IconButton(
-                                      icon: const Icon(
-                                        Icons.remove_circle_outline_rounded,
+                                      icon: Icon(
+                                        isCurrentUser
+                                            ? Icons.exit_to_app_rounded
+                                            : Icons.remove_circle_outline_rounded,
                                         color: AppColors.lightError,
                                         size: 20,
                                       ),
-                                      tooltip: 'Remove Member',
+                                      tooltip: isCurrentUser
+                                          ? 'Leave Family Space'
+                                          : 'Remove Member',
                                       onPressed: () async {
-                                        await ref
-                                            .read(
-                                              familyControllerProvider.notifier,
-                                            )
-                                            .removeMember(member.uid);
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: Text(
+                                              isCurrentUser
+                                                  ? 'Leave Family Space?'
+                                                  : 'Remove Member?',
+                                            ),
+                                            content: Text(
+                                              isCurrentUser
+                                                  ? 'Are you sure you want to leave "${state.family!.name}"? You will lose access to shared family documents.'
+                                                  : 'Remove $displayTitle from "${state.family!.name}"? They will lose access to shared documents.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      AppColors.lightError,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                onPressed: () =>
+                                                    Navigator.pop(ctx, true),
+                                                child: Text(
+                                                  isCurrentUser
+                                                      ? 'Leave'
+                                                      : 'Remove',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          if (isCurrentUser) {
+                                            await ref
+                                                .read(
+                                                  familyControllerProvider
+                                                      .notifier,
+                                                )
+                                                .leaveFamily();
+                                          } else {
+                                            await ref
+                                                .read(
+                                                  familyControllerProvider
+                                                      .notifier,
+                                                )
+                                                .removeMember(member.uid);
+                                          }
+                                        }
                                       },
                                     )
                                   : null,
@@ -1211,92 +1264,206 @@ class FamilyScreen extends ConsumerWidget {
                         );
                       },
                     ),
-                    if (state.outgoingInvitations.isNotEmpty) ...[
-                      const Divider(height: AppSpacing.large),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule_send_rounded,
-                            size: 16,
-                            color: isDark
-                                ? AppColors.darkPrimary
-                                : AppColors.lightPrimary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Pending Invitations (${state.outgoingInvitations.length})',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...state.outgoingInvitations.map(
-                        (inv) => Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkSurfaceVariant.withAlpha(50)
-                                : AppColors.lightSurfaceVariant.withAlpha(50),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.darkOutline.withAlpha(30)
-                                  : AppColors.lightOutline.withAlpha(40),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      inv.recipientDisplayName ??
-                                          inv.recipientEmail,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
+                    Builder(
+                      builder: (context) {
+                        final pendingInvites = state.outgoingInvitations.where((inv) {
+                          if (inv.status != InvitationStatus.pending) return false;
+                          final alreadyMember = state.members.any((m) =>
+                              m.email.trim().toLowerCase() ==
+                              inv.recipientEmail.trim().toLowerCase());
+                          return !alreadyMember;
+                        }).toList();
+
+                        final declinedInvites = state.outgoingInvitations
+                            .where((inv) => inv.status == InvitationStatus.declined)
+                            .toList();
+
+                        if (pendingInvites.isEmpty && declinedInvites.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (pendingInvites.isNotEmpty) ...[
+                              const Divider(height: AppSpacing.large),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.schedule_send_rounded,
+                                    size: 16,
+                                    color: isDark
+                                        ? AppColors.darkPrimary
+                                        : AppColors.lightPrimary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Pending Invitations (${pendingInvites.length})',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
                                     ),
-                                    Text(
-                                      '${inv.recipientEmail} • ${inv.role.name.toUpperCase()} (Pending)',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppColors.darkTextSecondary
-                                            : AppColors.lightTextSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppColors.lightError,
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                                onPressed: () async {
-                                  await ref
-                                      .read(familyControllerProvider.notifier)
-                                      .cancelInvitation(inv.invitationId);
-                                },
-                                child: const Text(
-                                  'Cancel Invite',
-                                  style: TextStyle(fontSize: 12),
+                              const SizedBox(height: 8),
+                              ...pendingInvites.map(
+                                (inv) => Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? AppColors.darkSurfaceVariant.withAlpha(50)
+                                        : AppColors.lightSurfaceVariant.withAlpha(50),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? AppColors.darkOutline.withAlpha(30)
+                                          : AppColors.lightOutline.withAlpha(40),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              inv.recipientDisplayName ??
+                                                  inv.recipientEmail,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${inv.recipientEmail} • ${inv.role.name.toUpperCase()} (Pending)',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark
+                                                    ? AppColors.darkTextSecondary
+                                                    : AppColors.lightTextSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      TextButton(
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.lightError,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () async {
+                                          await ref
+                                              .read(
+                                                familyControllerProvider
+                                                    .notifier,
+                                              )
+                                              .cancelInvitation(inv.invitationId);
+                                        },
+                                        child: const Text(
+                                          'Cancel Invite',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                    ],
+                            if (declinedInvites.isNotEmpty) ...[
+                              const Divider(height: AppSpacing.large),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.cancel_outlined,
+                                    size: 16,
+                                    color: Colors.redAccent,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Declined Invitations (${declinedInvites.length})',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ...declinedInvites.map(
+                                (inv) => Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withAlpha(isDark ? 30 : 15),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.red.withAlpha(60),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              inv.recipientDisplayName ??
+                                                  inv.recipientEmail,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${inv.recipientEmail} • Invitation Declined',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark
+                                                    ? Colors.red.shade200
+                                                    : Colors.red.shade800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      TextButton(
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: isDark
+                                              ? Colors.red.shade200
+                                              : Colors.red.shade800,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () async {
+                                          await ref
+                                              .read(
+                                                familyControllerProvider
+                                                    .notifier,
+                                              )
+                                              .cancelInvitation(inv.invitationId);
+                                        },
+                                        child: const Text(
+                                          'Dismiss',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

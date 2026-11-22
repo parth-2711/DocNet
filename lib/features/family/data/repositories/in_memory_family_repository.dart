@@ -51,6 +51,12 @@ class InMemoryFamilyRepository implements FamilyRepository {
   }
 
   @override
+  Future<void> removeFamily(String familyId) async {
+    _families.remove(familyId);
+    _members.remove(familyId);
+  }
+
+  @override
   Future<void> removeMember({
     required String familyId,
     required String uid,

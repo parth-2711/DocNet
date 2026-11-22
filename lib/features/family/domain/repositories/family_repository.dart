@@ -19,6 +19,9 @@ abstract class FamilyRepository {
   /// Adds a member to a family space.
   Future<void> addMember(FamilyMember member);
 
+  /// Removes a family space entirely.
+  Future<void> removeFamily(String familyId);
+
   /// Removes a member from a family space (FAM-008).
   Future<void> removeMember({required String familyId, required String uid});
 

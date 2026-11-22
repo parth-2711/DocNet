@@ -126,33 +126,9 @@ class PersistentFamilyRepository implements FamilyRepository {
   Future<FamilySpace?> getUserFamily(String uid) async {
     await _ensureLoaded();
 
-    // 1. Check if user has an activeFamilyId recorded in Firestore
     if (_canUseFirestore) {
       try {
-        final userDoc = await _firestore.collection('users').doc(uid).get();
-        if (userDoc.exists && userDoc.data()?['activeFamilyId'] != null) {
-          final activeFamilyId = userDoc.data()!['activeFamilyId'] as String;
-          final fam = await getFamily(activeFamilyId);
-          if (fam != null) return fam;
-        }
-      } catch (_) {}
-    }
-
-    // 2. Check if user is a member of any local family
-    for (final entry in _members.entries) {
-      if (entry.value.any((m) => m.uid == uid)) {
-        return _families[entry.key];
-      }
-    }
-
-    // 3. Check if user is owner of a local family
-    for (final fam in _families.values) {
-      if (fam.ownerUid == uid) return fam;
-    }
-
-    // 4. Check if owner of any family in Firestore
-    if (_canUseFirestore) {
-      try {
+        // 1. Check if user is owner of any family in Firestore
         final ownerSnap = await _firestore
             .collection('families')
             .where('ownerUid', isEqualTo: uid)
@@ -164,7 +140,59 @@ class PersistentFamilyRepository implements FamilyRepository {
           await _persist();
           return fam;
         }
-      } catch (_) {}
+
+        // 2. Check user's active family from users/{uid}
+        final userDoc = await _firestore.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          final activeFamId = userDoc.data()?['activeFamilyId'] as String?;
+          if (activeFamId != null && activeFamId.isNotEmpty) {
+            // Verify user is ACTUALLY still an active member in this family
+            final memberDoc = await _firestore
+                .collection('families')
+                .doc(activeFamId)
+                .collection('members')
+                .doc(uid)
+                .get();
+            if (memberDoc.exists && memberDoc.data()?['status'] == 'active') {
+              final fam = await getFamily(activeFamId);
+              if (fam != null) return fam;
+            } else {
+              // User was removed from this family!
+              // Clear their activeFamilyId in Firestore and clean local cache
+              await _firestore.collection('users').doc(uid).set({
+                'activeFamilyId': null,
+                'updatedAt': DateTime.now().toUtc().toIso8601String(),
+              }, SetOptions(merge: true));
+              _members[activeFamId]?.removeWhere((m) => m.uid == uid);
+              _families.remove(activeFamId);
+              await _persist();
+              return null;
+            }
+          } else {
+            // User has no active family in Firestore; clear any non-owner local membership
+            for (final famId in _members.keys.toList()) {
+              if (_families[famId]?.ownerUid != uid) {
+                _members[famId]?.removeWhere((m) => m.uid == uid);
+                _families.remove(famId);
+              }
+            }
+            await _persist();
+            return null;
+          }
+        }
+      } catch (e) {
+        AppLogger.warn('PersistentFamilyRepository', 'Error checking user family in Firestore: $e');
+      }
+    }
+
+    // Fallback to local storage (for offline or tests)
+    for (final fam in _families.values) {
+      if (fam.ownerUid == uid) return fam;
+    }
+    for (final entry in _members.entries) {
+      if (entry.value.any((m) => m.uid == uid && m.status == 'active')) {
+        return _families[entry.key];
+      }
     }
 
     return null;
@@ -206,6 +234,31 @@ class PersistentFamilyRepository implements FamilyRepository {
           final list = snap.docs
               .map((d) => FamilyMember.fromMap(d.data()))
               .toList();
+
+          // Ensure family owner is always present in members list
+          final fam = _families[familyId];
+          if (fam != null && !list.any((m) => m.uid == fam.ownerUid)) {
+            final localOwner = (_members[familyId] ?? []).firstWhere(
+              (m) => m.uid == fam.ownerUid,
+              orElse: () => FamilyMember(
+                uid: fam.ownerUid,
+                familyId: fam.familyId,
+                displayName: 'Family Owner',
+                email: '',
+                role: FamilyRole.owner,
+                joinedAt: fam.createdAt,
+              ),
+            );
+            list.insert(0, localOwner);
+            _firestore
+                .collection('families')
+                .doc(familyId)
+                .collection('members')
+                .doc(fam.ownerUid)
+                .set(localOwner.toMap(), SetOptions(merge: true))
+                .catchError((_) {});
+          }
+
           _members[familyId] = list;
           await _persist();
         }
@@ -218,6 +271,20 @@ class PersistentFamilyRepository implements FamilyRepository {
     }
 
     return List.unmodifiable(_members[familyId] ?? []);
+  }
+
+  @override
+  Future<void> removeFamily(String familyId) async {
+    await _ensureLoaded();
+    _families.remove(familyId);
+    _members.remove(familyId);
+    await _persist();
+
+    if (_canUseFirestore) {
+      try {
+        await _firestore.collection('families').doc(familyId).delete();
+      } catch (_) {}
+    }
   }
 
   @override
@@ -295,6 +362,12 @@ class PersistentFamilyRepository implements FamilyRepository {
           'memberCount': list?.length ?? 0,
           'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
+
+        // Clear active family record on user so their device immediately leaves the space
+        await _firestore.collection('users').doc(uid).set({
+          'activeFamilyId': null,
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        }, SetOptions(merge: true));
       } catch (e) {
         AppLogger.warn(
           'PersistentFamilyRepository',

@@ -172,7 +172,6 @@ class PersistentFamilyInvitationRepository
         final snapshot = await _firestore
             .collection('family_invitations')
             .where('familyId', isEqualTo: familyId)
-            .where('status', isEqualTo: 'pending')
             .get();
         for (final doc in snapshot.docs) {
           final inv = FamilyInvitation.fromMap(doc.data());
@@ -189,7 +188,8 @@ class PersistentFamilyInvitationRepository
 
     final results = _invitations.values.where((inv) {
       return inv.familyId == familyId &&
-          inv.status == InvitationStatus.pending;
+          (inv.status == InvitationStatus.pending ||
+           inv.status == InvitationStatus.declined);
     }).toList();
 
     results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
