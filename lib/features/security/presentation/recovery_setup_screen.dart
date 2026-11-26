@@ -68,7 +68,7 @@ class _RecoverySetupScreenState extends ConsumerState<RecoverySetupScreen> {
                     const SizedBox(width: AppSpacing.standard),
                     Expanded(
                       child: Text(
-                        'FamilyVault uses zero-knowledge encryption. If you lose all your devices and your recovery secret, your encrypted documents cannot be restored by support.',
+                        'DocNet uses zero-knowledge encryption. If you lose all your devices and your recovery secret, your encrypted documents cannot be restored by support.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark
                               ? AppColors.darkWarning

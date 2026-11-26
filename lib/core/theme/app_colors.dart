@@ -93,12 +93,16 @@ class AppCategoryTheme {
         return Icons.health_and_safety_outlined;
       case 'property':
         return Icons.home_work_outlined;
+      case 'work':
       case 'employment':
         return Icons.work_outline;
+      case 'certificates':
+        return Icons.workspace_premium_outlined;
       case 'insurance':
         return Icons.verified_user_outlined;
+      case 'shared':
       case 'family':
-        return Icons.people_outline;
+        return Icons.workspaces_outline;
       default:
         return Icons.folder_open_outlined;
     }
@@ -119,10 +123,14 @@ class AppCategoryTheme {
         return const Color(0xFFE11D48); // Rose
       case 'property':
         return const Color(0xFFD97706); // Amber
+      case 'work':
       case 'employment':
         return const Color(0xFF4F46E5); // Indigo
+      case 'certificates':
+        return const Color(0xFF9333EA); // Purple
       case 'insurance':
         return const Color(0xFF0D9488); // Teal
+      case 'shared':
       case 'family':
         return const Color(0xFF0284C7); // Sky
       default:

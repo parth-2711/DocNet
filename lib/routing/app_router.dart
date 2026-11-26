@@ -113,9 +113,9 @@ class AppNavigationShell extends StatelessWidget {
                   label: 'Documents',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.people_outline_rounded),
-                  activeIcon: Icon(Icons.people_rounded),
-                  label: 'Family',
+                  icon: Icon(Icons.workspaces_outline),
+                  activeIcon: Icon(Icons.workspaces_rounded),
+                  label: 'Spaces',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.history_rounded),
@@ -156,9 +156,9 @@ class AppNavigationShell extends StatelessWidget {
                   label: Text('Documents'),
                 ),
                 NavigationRailDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people),
-                  label: Text('Family'),
+                  icon: Icon(Icons.workspaces_outline),
+                  selectedIcon: Icon(Icons.workspaces_rounded),
+                  label: Text('Spaces'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.history_outlined),

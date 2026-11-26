@@ -3,6 +3,9 @@ import '../entities/document_record.dart';
 /// Available sort criteria for vault documents.
 enum DocumentSortOption { dateDesc, dateAsc, nameAsc, nameDesc, sizeDesc }
 
+/// Scope for filtering personal vs. shared documents.
+enum DocumentOwnershipScope { all, myVault, sharedWithMe }
+
 /// Filter criteria for querying vault documents locally on-device
 /// (PRD.md SEARCH-001 through SEARCH-007).
 class DocumentFilter {
@@ -10,6 +13,8 @@ class DocumentFilter {
   final String category;
   final bool favoritesOnly;
   final String? ownerUid;
+  final Set<String> sharedDocumentIds;
+  final DocumentOwnershipScope ownershipScope;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final DocumentSortOption sortBy;
@@ -19,6 +24,8 @@ class DocumentFilter {
     this.category = 'All',
     this.favoritesOnly = false,
     this.ownerUid,
+    this.sharedDocumentIds = const {},
+    this.ownershipScope = DocumentOwnershipScope.all,
     this.dateFrom,
     this.dateTo,
     this.sortBy = DocumentSortOption.dateDesc,
@@ -29,6 +36,8 @@ class DocumentFilter {
     String? category,
     bool? favoritesOnly,
     String? ownerUid,
+    Set<String>? sharedDocumentIds,
+    DocumentOwnershipScope? ownershipScope,
     DateTime? dateFrom,
     DateTime? dateTo,
     DocumentSortOption? sortBy,
@@ -38,6 +47,8 @@ class DocumentFilter {
       category: category ?? this.category,
       favoritesOnly: favoritesOnly ?? this.favoritesOnly,
       ownerUid: ownerUid ?? this.ownerUid,
+      sharedDocumentIds: sharedDocumentIds ?? this.sharedDocumentIds,
+      ownershipScope: ownershipScope ?? this.ownershipScope,
       dateFrom: dateFrom ?? this.dateFrom,
       dateTo: dateTo ?? this.dateTo,
       sortBy: sortBy ?? this.sortBy,
@@ -71,12 +82,23 @@ class DocumentSearchEngine {
         return false;
       }
 
-      // 4. Owner filter (SEARCH-003)
-      if (filter.ownerUid != null &&
-          filter.ownerUid!.isNotEmpty &&
-          doc.ownerUid != filter.ownerUid &&
-          doc.category != 'Family') {
-        return false;
+      // 4. Strict owner / explicit share isolation filter (SEARCH-003)
+      if (filter.ownerUid != null && filter.ownerUid!.isNotEmpty) {
+        final isOwner = doc.ownerUid == filter.ownerUid;
+        final isExplicitlyShared = filter.sharedDocumentIds.contains(
+          doc.documentId,
+        );
+        switch (filter.ownershipScope) {
+          case DocumentOwnershipScope.myVault:
+            if (!isOwner) return false;
+            break;
+          case DocumentOwnershipScope.sharedWithMe:
+            if (isOwner || !isExplicitlyShared) return false;
+            break;
+          case DocumentOwnershipScope.all:
+            if (!isOwner && !isExplicitlyShared) return false;
+            break;
+        }
       }
 
       // 5. Date filter (SEARCH-004)

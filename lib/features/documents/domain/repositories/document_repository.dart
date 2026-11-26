@@ -5,10 +5,11 @@ import '../entities/key_envelope.dart';
 /// Repository contract for managing personal vault documents, immutable versions,
 /// and key envelopes (DATABASE_SCHEMA.md & ARCHITECTURE.md).
 abstract class DocumentRepository {
-  /// Retrieves personal documents, optionally filtered by category and owner.
+  /// Retrieves personal & explicitly shared documents, optionally filtered by category and owner.
   Future<List<DocumentRecord>> getDocuments({
     String? category,
     String? ownerUid,
+    String? ownerEmail,
     bool includeArchived = false,
     bool includeDeleted = false,
   });
@@ -32,6 +33,17 @@ abstract class DocumentRepository {
   Future<KeyEnvelope?> getKeyEnvelope({
     required String documentId,
     required String recipientId,
+    String? recipientEmail,
+  });
+
+  /// Lists all key envelopes associated with a document.
+  Future<List<KeyEnvelope>> getKeyEnvelopes(String documentId);
+
+  /// Deletes a recipient's key envelope (revoking cryptographic access).
+  Future<void> deleteKeyEnvelope({
+    required String documentId,
+    required String recipientId,
+    String? recipientEmail,
   });
 
   /// Soft deletes a document (DOC-013).

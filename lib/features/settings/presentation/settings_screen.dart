@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/services/in_app_update_service.dart';
 import '../../../core/storage/local_vault_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -201,7 +202,7 @@ class SettingsScreen extends ConsumerWidget {
 
       final authenticated = await localAuth.authenticate(
         localizedReason:
-            'Authenticate with fingerprint, face, or PIN to enable FamilyVault App Lock',
+            'Authenticate with fingerprint, face, or PIN to enable DocNet App Lock',
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
@@ -343,7 +344,7 @@ class SettingsScreen extends ConsumerWidget {
                             doc.decryptedName ??
                             'Document_${doc.documentId}.pdf',
                         bytes: utf8.encode(
-                          'FamilyVault decrypted export for ${doc.decryptedName}',
+                          'DocNet decrypted export for ${doc.decryptedName}',
                         ),
                       );
                   xFiles.add(XFile(tempFile.path));
@@ -352,7 +353,7 @@ class SettingsScreen extends ConsumerWidget {
                 if (xFiles.isNotEmpty) {
                   await Share.shareXFiles(
                     xFiles,
-                    text: 'FamilyVault Export: $count document(s)',
+                    text: 'DocNet Export: $count document(s)',
                   );
                 }
 
@@ -690,7 +691,73 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.standard),
 
-          // Section 5: Legal & Privacy
+          // Section 5: App & Updates
+          _buildSectionHeader('APP & UPDATES', isDark),
+          _buildSectionCard(
+            isDark: isDark,
+            children: [
+              Consumer(
+                builder: (context, ref, _) {
+                  final updateState = ref.watch(appUpdateControllerProvider);
+                  final isProgress =
+                      updateState.isBusy ||
+                      updateState.status == AppUpdateStatus.downloading;
+                  final subtitle = switch (updateState.status) {
+                    AppUpdateStatus.checking =>
+                      'Checking Google Play for updates...',
+                    AppUpdateStatus.downloading =>
+                      'Downloading update in background...',
+                    AppUpdateStatus.readyToInstall =>
+                      'Update downloaded — tap to restart & install',
+                    AppUpdateStatus.installing => 'Installing update...',
+                    AppUpdateStatus.upToDate =>
+                      updateState.message ?? 'DocNet is on the latest version',
+                    _ => 'Check Google Play for the latest DocNet release',
+                  };
+
+                  return _buildSettingTile(
+                    icon: Icons.system_update_rounded,
+                    iconColor: const Color(0xFF0EA5E9),
+                    title: updateState.status == AppUpdateStatus.readyToInstall
+                        ? 'Restart to Install Update'
+                        : 'Check for App Updates',
+                    subtitle: subtitle,
+                    trailing: isProgress
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                    onTap: isProgress
+                        ? null
+                        : () async {
+                            final notifier = ref.read(
+                              appUpdateControllerProvider.notifier,
+                            );
+                            if (updateState.status ==
+                                AppUpdateStatus.readyToInstall) {
+                              await notifier.completeFlexibleUpdate();
+                              return;
+                            }
+                            final result = await notifier.checkForUpdate(
+                              userInitiated: true,
+                            );
+                            if (context.mounted && result.message != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(result.message!)),
+                              );
+                            }
+                          },
+                    isDark: isDark,
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.standard),
+
+          // Section 6: Legal & Privacy
           _buildSectionHeader('LEGAL & PRIVACY', isDark),
           _buildSectionCard(
             isDark: isDark,
@@ -762,7 +829,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'FamilyVault (com.pgdeveloper.docnet)',
+                'DocNet (com.pgdeveloper.docnet)',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,

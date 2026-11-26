@@ -15,11 +15,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../activity/domain/entities/activity_event.dart';
 import '../../activity/presentation/controllers/activity_controller.dart';
 import '../../auth/presentation/controllers/auth_controller.dart';
-import '../../family/presentation/controllers/family_controller.dart';
 import '../domain/entities/document_record.dart';
 import '../domain/entities/document_version.dart';
 import '../domain/usecases/download_and_decrypt_usecase.dart';
 import 'controllers/documents_controller.dart';
+import 'widgets/manage_document_access_sheet.dart';
 
 /// Document Detail Screen matching THEME.md Section 11 and PRD.md DOC-015, DOC-016, VER-005.
 class DocumentDetailScreen extends ConsumerStatefulWidget {
@@ -75,10 +75,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
         });
       }
 
-      // Decrypt on-device
+      // Decrypt on-device (enforcing per-user DocumentPermission if non-owner)
       final decrypted = await downloadUseCase.execute(
         documentId: widget.documentId,
         recipientUid: uid,
+        recipientEmail: authState.userProfile?.email,
       );
 
       if (mounted) {
@@ -217,7 +218,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Export Unencrypted Copy'),
         content: const Text(
-          'Warning: Exporting will decrypt this file and save it in plaintext outside FamilyVault. Once exported, FamilyVault cannot control subsequent copying or unauthorized access.',
+          'Warning: Exporting will decrypt this file and save it in plaintext outside DocNet. Once exported, DocNet cannot control subsequent copying or unauthorized access.',
         ),
         actions: [
           TextButton(
@@ -245,7 +246,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
                   await Share.shareXFiles(
                     [XFile(tempFile.path)],
                     text:
-                        'Exported from FamilyVault: ${_document!.decryptedName}',
+                        'Exported from DocNet: ${_document!.decryptedName}',
                   );
 
                   ref
@@ -284,75 +285,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   }
 
   void _showShareDialog() {
-    final messenger = ScaffoldMessenger.of(context);
-    final familyState = ref.read(familyControllerProvider);
-    final members = familyState.members
-        .where((m) => m.uid != _document?.ownerUid)
-        .toList();
-
-    if (members.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No other members in your family space to share with. Invite a member in the Family tab first.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    showDialog(
+    if (_document == null) return;
+    showManageDocumentAccessSheet(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Share with Family Member'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: members.length,
-            itemBuilder: (context, index) {
-              final member = members[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  child: Text(member.displayName.substring(0, 1).toUpperCase()),
-                ),
-                title: Text(member.displayName),
-                subtitle: Text(member.email),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                onTap: () async {
-                  Navigator.pop(dialogCtx);
-                  final shareUseCase = ref.read(shareDocumentUseCaseProvider);
-                  final authState = ref.read(authControllerProvider);
-                  final granterUid = authState.userProfile?.uid ?? 'guest-uid';
-
-                  await shareUseCase.execute(
-                    documentId: _document!.documentId,
-                    granterUid: granterUid,
-                    recipientUid: member.uid,
-                    canView: true,
-                    canDownload: false, // Least privilege default (SHARE-003)
-                  );
-
-                  if (!mounted) return;
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Key envelope generated for ${member.displayName}. View access granted.',
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
+      ref: ref,
+      document: _document!,
     );
   }
 
@@ -430,6 +367,13 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final currentUid =
+        ref.watch(authControllerProvider).userProfile?.uid ?? 'guest-uid';
+    final isOwner = _document == null || _document!.ownerUid == currentUid;
+    final perm = _decryptedResult?.permission;
+    final canShare = isOwner || (perm?.canShare == true);
+    final canEdit = isOwner || (perm?.canEdit == true);
+    final canDownload = isOwner || (perm?.canDownload == true);
 
     return Scaffold(
       appBar: AppBar(
@@ -454,26 +398,30 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
                     });
                   },
           ),
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            tooltip: 'Share with Family',
-            onPressed: _document == null ? null : _showShareDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_upload_outlined),
-            tooltip: 'Replace Version',
-            onPressed: _document == null ? null : _showReplaceDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined),
-            tooltip: 'Export Plaintext',
-            onPressed: _decryptedResult == null ? null : _showExportWarning,
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded),
-            tooltip: 'Delete',
-            onPressed: _showDeleteConfirmDialog,
-          ),
+          if (canShare)
+            IconButton(
+              icon: const Icon(Icons.share_outlined),
+              tooltip: 'Manage Access & Share',
+              onPressed: _document == null ? null : _showShareDialog,
+            ),
+          if (canEdit)
+            IconButton(
+              icon: const Icon(Icons.file_upload_outlined),
+              tooltip: 'Replace Version',
+              onPressed: _document == null ? null : _showReplaceDialog,
+            ),
+          if (canDownload)
+            IconButton(
+              icon: const Icon(Icons.file_download_outlined),
+              tooltip: 'Export Plaintext',
+              onPressed: _decryptedResult == null ? null : _showExportWarning,
+            ),
+          if (isOwner)
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              tooltip: 'Delete',
+              onPressed: _showDeleteConfirmDialog,
+            ),
         ],
       ),
       body: _isLoading
@@ -572,7 +520,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
                             borderRadius: AppRadius.pillBorderRadius,
                           ),
                           child: Text(
-                            'Decrypted on this device',
+                            isOwner
+                                ? 'Decrypted on this device'
+                                : (canDownload
+                                      ? 'Shared with you • Download enabled'
+                                      : 'Shared with you • View-only access'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: isDark
                                   ? AppColors.darkPrimary
@@ -582,51 +534,68 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.standard),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Open in Device Viewer'),
-                          onPressed: _decryptedResult == null
-                              ? null
-                              : () async {
-                                  final messenger = ScaffoldMessenger.of(
-                                    context,
-                                  );
-                                  try {
-                                    final storageService = ref.read(
-                                      localVaultStorageServiceProvider,
-                                    );
-                                    final tempFile = await storageService
-                                        .writeTemporaryDecryptedFile(
-                                          fileName:
-                                              _document?.decryptedName ??
-                                              'Document.pdf',
-                                          bytes:
-                                              _decryptedResult!.plaintextBytes,
-                                        );
-                                    final openResult = await OpenFilex.open(
-                                      tempFile.path,
-                                    );
-                                    if (!mounted) return;
-                                    if (openResult.type != ResultType.done) {
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Opened with status: ${openResult.message}',
-                                          ),
-                                        ),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.open_in_new),
+                              label: const Text('Open in Device Viewer'),
+                              onPressed: _decryptedResult == null
+                                  ? null
+                                  : () async {
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
                                       );
-                                    }
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Could not open file: $e',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
+                                      try {
+                                        final storageService = ref.read(
+                                          localVaultStorageServiceProvider,
+                                        );
+                                        final tempFile = await storageService
+                                            .writeTemporaryDecryptedFile(
+                                              fileName:
+                                                  _document?.decryptedName ??
+                                                  'Document.pdf',
+                                              bytes: _decryptedResult!
+                                                  .plaintextBytes,
+                                            );
+                                        final openResult = await OpenFilex.open(
+                                          tempFile.path,
+                                        );
+                                        if (!mounted) return;
+                                        if (openResult.type !=
+                                            ResultType.done) {
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Opened with status: ${openResult.message}',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        messenger.showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Could not open file: $e',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                            ),
+                            if (canShare && _document != null)
+                              OutlinedButton.icon(
+                                icon: const Icon(
+                                  Icons.admin_panel_settings_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Manage Access'),
+                                onPressed: _showShareDialog,
+                              ),
+                          ],
                         ),
                       ],
                     ),

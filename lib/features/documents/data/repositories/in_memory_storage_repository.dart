@@ -29,6 +29,9 @@ class InMemoryStorageRepository implements StorageRepository {
   }
 
   @override
+  Future<void> syncObjectToCloud(String objectRef) async {}
+
+  @override
   Future<void> clearAll() async {
     _storage.clear();
   }

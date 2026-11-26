@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../auth/presentation/controllers/auth_controller.dart';
 import '../../sync/domain/entities/conflict_resolution.dart';
 import '../../sync/domain/entities/sync_operation.dart';
 import '../../sync/presentation/controllers/sync_controller.dart';
 import '../domain/entities/document_record.dart';
 import '../domain/services/document_search_engine.dart';
 import 'controllers/documents_controller.dart';
+import 'widgets/manage_document_access_sheet.dart';
 import 'widgets/upload_document_dialog.dart';
 
 /// Documents screen matching THEME.md Section 8 & 11 and PRD.md DOC requirements.
@@ -116,6 +118,22 @@ class DocumentsScreen extends ConsumerWidget {
           style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
         ),
         actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.darkSurfaceVariant.withAlpha(120)
+                    : AppColors.lightSurfaceVariant.withAlpha(160),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.refresh_rounded, size: 20),
+            ),
+            tooltip: 'Sync & Refresh Documents',
+            onPressed: () {
+              ref.read(documentsControllerProvider.notifier).loadDocuments();
+            },
+          ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(7),
@@ -409,11 +427,65 @@ class DocumentsScreen extends ConsumerWidget {
                     label: const Text('All'),
                     selected:
                         state.selectedCategory == 'All' &&
-                        !state.filter.favoritesOnly,
+                        !state.filter.favoritesOnly &&
+                        state.filter.ownershipScope ==
+                            DocumentOwnershipScope.all,
                     onSelected: (selected) {
+                      final notifier = ref.read(
+                        documentsControllerProvider.notifier,
+                      );
+                      notifier.selectCategory('All');
+                      notifier.setOwnershipScope(DocumentOwnershipScope.all);
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.compact),
+                  child: FilterChip(
+                    avatar: const Icon(Icons.lock_outline_rounded, size: 15),
+                    label: const Text('My Vault'),
+                    selected:
+                        state.filter.ownershipScope ==
+                        DocumentOwnershipScope.myVault,
+                    onSelected: (_) {
+                      final isAlready =
+                          state.filter.ownershipScope ==
+                          DocumentOwnershipScope.myVault;
                       ref
                           .read(documentsControllerProvider.notifier)
-                          .selectCategory('All');
+                          .setOwnershipScope(
+                            isAlready
+                                ? DocumentOwnershipScope.all
+                                : DocumentOwnershipScope.myVault,
+                          );
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.compact),
+                  child: FilterChip(
+                    avatar: const Icon(Icons.people_outline_rounded, size: 15),
+                    label: const Text('Shared with Me'),
+                    selected:
+                        state.filter.ownershipScope ==
+                        DocumentOwnershipScope.sharedWithMe,
+                    onSelected: (_) {
+                      final isAlready =
+                          state.filter.ownershipScope ==
+                          DocumentOwnershipScope.sharedWithMe;
+                      ref
+                          .read(documentsControllerProvider.notifier)
+                          .setOwnershipScope(
+                            isAlready
+                                ? DocumentOwnershipScope.all
+                                : DocumentOwnershipScope.sharedWithMe,
+                          );
                     },
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
@@ -548,6 +620,9 @@ class _DocumentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final currentUid =
+        ref.watch(authControllerProvider).userProfile?.uid ?? 'guest-uid';
+    final isSharedWithMe = doc.ownerUid != currentUid;
     final isPdf =
         doc.mimeType == 'application/pdf' ||
         doc.decryptedName?.toLowerCase().endsWith('.pdf') == true;
@@ -625,10 +700,34 @@ class _DocumentCard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.small),
-                  Text(
-                    '${(doc.originalSizeBytes / 1024).toStringAsFixed(1)} KB (Encrypted)',
-                    style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                  Flexible(
+                    child: Text(
+                      '${(doc.originalSizeBytes / 1024).toStringAsFixed(1)} KB',
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                    ),
                   ),
+                  if (isSharedWithMe) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withAlpha(28),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'SHARED',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               if (doc.decryptedTags.isNotEmpty) ...[
@@ -677,6 +776,12 @@ class _DocumentCard extends ConsumerWidget {
                 onSelected: (value) {
                   if (value == 'open') {
                     context.go('/documents/${doc.documentId}');
+                  } else if (value == 'share') {
+                    showManageDocumentAccessSheet(
+                      context: context,
+                      ref: ref,
+                      document: doc,
+                    );
                   } else if (value == 'delete') {
                     _confirmAndDelete(context, ref, doc);
                   }
@@ -692,20 +797,32 @@ class _DocumentCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.delete_outline_rounded,
-                          size: 18,
-                          color: Colors.red,
-                        ),
-                        SizedBox(width: 8),
-                        Text('Delete', style: TextStyle(color: Colors.red)),
-                      ],
+                  if (!isSharedWithMe)
+                    const PopupMenuItem(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          Icon(Icons.admin_panel_settings_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Manage Access'),
+                        ],
+                      ),
                     ),
-                  ),
+                  if (!isSharedWithMe)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ],

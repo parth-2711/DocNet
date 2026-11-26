@@ -10,6 +10,12 @@ abstract class FamilyRepository {
   /// Retrieves the active family space for a user.
   Future<FamilySpace?> getUserFamily(String uid);
 
+  /// Retrieves all spaces that a user owns or belongs to.
+  Future<List<FamilySpace>> getUserFamilies(String uid);
+
+  /// Sets the currently active space for a user.
+  Future<void> setActiveFamily({required String uid, required String familyId});
+
   /// Saves or updates a family space.
   Future<void> saveFamily(FamilySpace family);
 
@@ -31,9 +37,23 @@ abstract class FamilyRepository {
   /// Retrieves all permissions granted on a document.
   Future<List<DocumentPermission>> getPermissions(String documentId);
 
+  /// Retrieves all document permissions granted to a specific user (by UID or email).
+  Future<List<DocumentPermission>> getPermissionsForUser({
+    required String uid,
+    String? email,
+  });
+
   /// Retrieves permission for a specific user or family grantee.
   Future<DocumentPermission?> getPermission({
     required String documentId,
     required String granteeId,
+    String? granteeEmail,
+  });
+
+  /// Revokes a user's or group's permission on a document.
+  Future<void> revokePermission({
+    required String documentId,
+    required String granteeId,
+    String? granteeEmail,
   });
 }

@@ -13,9 +13,11 @@ class InMemoryDocumentRepository implements DocumentRepository {
   Future<List<DocumentRecord>> getDocuments({
     String? category,
     String? ownerUid,
+    String? ownerEmail,
     bool includeArchived = false,
     bool includeDeleted = false,
   }) async {
+    final normalizedEmail = ownerEmail?.trim().toLowerCase();
     return _documents.values.where((doc) {
       if (!includeDeleted && doc.isDeleted) {
         return false;
@@ -28,8 +30,14 @@ class InMemoryDocumentRepository implements DocumentRepository {
       }
       if (ownerUid != null && ownerUid.isNotEmpty && doc.ownerUid != ownerUid) {
         final envelopes = _envelopes[doc.documentId] ?? [];
-        final isShared = envelopes.any((e) => e.recipientId == ownerUid);
-        if (!isShared && doc.category != 'Family') return false;
+        final isShared = envelopes.any(
+          (e) =>
+              e.recipientId == ownerUid ||
+              (normalizedEmail != null &&
+                  normalizedEmail.isNotEmpty &&
+                  e.recipientEmail?.trim().toLowerCase() == normalizedEmail),
+        );
+        if (!isShared) return false;
       }
       return true;
     }).toList();
@@ -59,23 +67,43 @@ class InMemoryDocumentRepository implements DocumentRepository {
 
   @override
   Future<void> saveKeyEnvelope(KeyEnvelope envelope) async {
-    _envelopes.putIfAbsent(envelope.documentId, () => []).add(envelope);
+    final list = _envelopes.putIfAbsent(envelope.documentId, () => []);
+    list.removeWhere(
+      (e) =>
+          e.recipientId == envelope.recipientId ||
+          (envelope.recipientEmail != null &&
+              envelope.recipientEmail!.isNotEmpty &&
+              e.recipientEmail?.toLowerCase() ==
+                  envelope.recipientEmail!.toLowerCase()),
+    );
+    list.add(envelope);
   }
 
   @override
   Future<KeyEnvelope?> getKeyEnvelope({
     required String documentId,
     required String recipientId,
+    String? recipientEmail,
   }) async {
     final list = _envelopes[documentId] ?? [];
     if (list.isEmpty) return null;
 
-    // Direct match
+    // Direct UID match
     for (final e in list) {
       if (e.recipientId == recipientId) return e;
     }
 
-    // Normalized email match
+    // Direct Email match
+    final normalizedEmail = recipientEmail?.trim().toLowerCase();
+    if (normalizedEmail != null && normalizedEmail.isNotEmpty) {
+      for (final e in list) {
+        if (e.recipientEmail?.trim().toLowerCase() == normalizedEmail) {
+          return e;
+        }
+      }
+    }
+
+    // Normalized UID match
     final cleanRecipient = recipientId.replaceFirst('uid-google-', 'uid-');
     for (final e in list) {
       final cleanEnv = e.recipientId.replaceFirst('uid-google-', 'uid-');
@@ -83,6 +111,29 @@ class InMemoryDocumentRepository implements DocumentRepository {
     }
 
     return null;
+  }
+
+  @override
+  Future<List<KeyEnvelope>> getKeyEnvelopes(String documentId) async {
+    return List.unmodifiable(_envelopes[documentId] ?? []);
+  }
+
+  @override
+  Future<void> deleteKeyEnvelope({
+    required String documentId,
+    required String recipientId,
+    String? recipientEmail,
+  }) async {
+    final list = _envelopes[documentId];
+    if (list == null) return;
+    final normalizedEmail = recipientEmail?.trim().toLowerCase();
+    list.removeWhere(
+      (e) =>
+          e.recipientId == recipientId ||
+          (normalizedEmail != null &&
+              normalizedEmail.isNotEmpty &&
+              e.recipientEmail?.trim().toLowerCase() == normalizedEmail),
+    );
   }
 
   @override

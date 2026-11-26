@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../documents/domain/entities/document_record.dart';
@@ -34,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'FamilyVault',
+          AppConstants.appName,
           style: TextStyle(
             fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
@@ -330,6 +331,80 @@ class HomeScreen extends ConsumerWidget {
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 onPressed: () => showUploadDocumentDialog(context, ref),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.large),
+
+            // Quick Access Categories for Students, Professionals & Everyday Use
+            Text(
+              'Quick Categories',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.compact),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _QuickCategoryCard(
+                    label: 'Education',
+                    subtitle: 'Notes & IDs',
+                    category: 'Education',
+                    isDark: isDark,
+                    onTap: () {
+                      ref
+                          .read(documentsControllerProvider.notifier)
+                          .selectCategory('Education');
+                      context.go('/documents');
+                    },
+                  ),
+                  _QuickCategoryCard(
+                    label: 'Work',
+                    subtitle: 'Resumes & Docs',
+                    category: 'Work',
+                    isDark: isDark,
+                    onTap: () {
+                      ref
+                          .read(documentsControllerProvider.notifier)
+                          .selectCategory('Work');
+                      context.go('/documents');
+                    },
+                  ),
+                  _QuickCategoryCard(
+                    label: 'Identity',
+                    subtitle: 'Passports & IDs',
+                    category: 'Identity',
+                    isDark: isDark,
+                    onTap: () {
+                      ref
+                          .read(documentsControllerProvider.notifier)
+                          .selectCategory('Identity');
+                      context.go('/documents');
+                    },
+                  ),
+                  _QuickCategoryCard(
+                    label: 'Certificates',
+                    subtitle: 'Degrees & Awards',
+                    category: 'Certificates',
+                    isDark: isDark,
+                    onTap: () {
+                      ref
+                          .read(documentsControllerProvider.notifier)
+                          .selectCategory('Certificates');
+                      context.go('/documents');
+                    },
+                  ),
+                  _QuickCategoryCard(
+                    label: 'Shared Spaces',
+                    subtitle: 'Groups & Teams',
+                    category: 'Shared',
+                    isDark: isDark,
+                    onTap: () => context.go('/family'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: AppSpacing.large),
@@ -767,5 +842,89 @@ class HomeScreen extends ConsumerWidget {
       case SyncStatus.upToDate:
         return 'This device is up to date.';
     }
+  }
+}
+
+class _QuickCategoryCard extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final String category;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _QuickCategoryCard({
+    required this.label,
+    required this.subtitle,
+    required this.category,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = AppCategoryTheme.getColor(category);
+    final bgColor = AppCategoryTheme.getBackgroundColor(category, isDark);
+    final icon = AppCategoryTheme.getIcon(category);
+
+    return Container(
+      width: 122,
+      margin: const EdgeInsets.only(right: AppSpacing.compact),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkOutline.withAlpha(35)
+              : AppColors.lightOutline.withAlpha(60),
+        ),
+        boxShadow: AppShadows.softCard(isDark),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

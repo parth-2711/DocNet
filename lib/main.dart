@@ -6,6 +6,7 @@ import 'core/constants/app_constants.dart';
 import 'core/logging/app_logger.dart';
 import 'core/storage/local_vault_storage_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_update_gate.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/security/presentation/widgets/app_lock_gate.dart';
 import 'routing/app_router.dart';
@@ -64,8 +65,9 @@ class FamilyVaultApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: router,
-      builder: (context, child) =>
-          AppLockGate(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) => AppLockGate(
+        child: AppUpdateGate(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

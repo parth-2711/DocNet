@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:docnet/features/auth/data/repositories/mock_user_profile_repository.dart';
 import 'package:docnet/features/auth/domain/entities/user_profile.dart';
 import 'package:docnet/features/documents/data/repositories/in_memory_document_repository.dart';
+import 'package:docnet/features/documents/data/repositories/in_memory_storage_repository.dart';
+import 'package:docnet/features/documents/domain/services/document_search_engine.dart';
+import 'package:docnet/features/documents/domain/usecases/download_and_decrypt_usecase.dart';
 import 'package:docnet/features/documents/domain/usecases/upload_document_usecase.dart';
 import 'package:docnet/features/documents/presentation/controllers/documents_controller.dart';
 import 'package:docnet/features/family/data/repositories/in_memory_family_invitation_repository.dart';
@@ -10,6 +13,8 @@ import 'package:docnet/features/family/data/repositories/in_memory_family_reposi
 import 'package:docnet/features/family/domain/entities/family_invitation.dart';
 import 'package:docnet/features/family/domain/entities/family_member.dart';
 import 'package:docnet/features/family/domain/usecases/create_family_usecase.dart';
+import 'package:docnet/features/family/domain/usecases/revoke_document_access_usecase.dart';
+import 'package:docnet/features/family/domain/usecases/share_document_usecase.dart';
 import 'package:docnet/features/family/presentation/controllers/family_controller.dart';
 import 'package:docnet/features/security/data/crypto/cryptography_crypto_service.dart';
 import 'upload_document_usecase_test.dart';
@@ -213,57 +218,193 @@ void main() {
       expect(inviterController.state.outgoingInvitations, isEmpty);
     });
 
-    test('Accepted member can access family documents while personal documents stay isolated', () async {
+    test('Explicit per-document sharing exposes only shared document while unshared documents stay isolated', () async {
       final docRepo = InMemoryDocumentRepository();
+      final storageRepo = InMemoryStorageRepository();
       final syncQueue = MockSyncQueueRepository();
+      final crypto = CryptographyCryptoService();
       final uploadUseCase = UploadDocumentUseCase(
-        cryptoService: CryptographyCryptoService(),
+        cryptoService: crypto,
         documentRepository: docRepo,
         syncQueueRepository: syncQueue,
+        storageRepository: storageRepo,
+      );
+      final shareUseCase = ShareDocumentUseCase(
+        documentRepository: docRepo,
+        familyRepository: familyRepo,
+        storageRepository: storageRepo,
       );
 
-      // Alice uploads a private personal document AND a shared family document
+      // Alice uploads two documents (Doc A1 and Doc A2)
       final aliceDocController = DocumentsController(
         docRepo: docRepo,
         uploadUseCase: uploadUseCase,
         currentUserUid: 'uid-user-1',
+        currentUserEmail: 'alice@example.com',
       );
 
-      await aliceDocController.uploadDocument(
+      final docA1 = await aliceDocController.uploadDocument(
         fileBytes: Uint8List.fromList([1, 2, 3]),
-        fileName: 'Alice_Private_Passport.pdf',
-        category: 'Identity',
+        fileName: 'Document_A1_Notes.pdf',
+        category: 'Education',
       );
 
       await aliceDocController.uploadDocument(
         fileBytes: Uint8List.fromList([4, 5, 6]),
-        fileName: 'Shared_Family_HouseDeed.pdf',
-        category: 'Family',
+        fileName: 'Document_A2_Private.pdf',
+        category: 'Shared', // Even Shared category stays private until explicitly shared!
       );
 
       expect(aliceDocController.state.documents.length, equals(2));
+
+      // Alice shares ONLY Document A1 with Bob
+      await shareUseCase.execute(
+        documentId: docA1.document.documentId,
+        granterUid: 'uid-user-1',
+        recipientUid: 'uid-user-2',
+        recipientEmail: 'bob@example.com',
+        recipientDisplayName: 'Bob Recipient',
+        canView: true,
+        canDownload: false,
+      );
 
       // Bob's documents controller
       final bobDocController = DocumentsController(
         docRepo: docRepo,
         uploadUseCase: uploadUseCase,
         currentUserUid: 'uid-user-2',
+        currentUserEmail: 'bob@example.com',
       );
 
       await bobDocController.loadDocuments();
 
-      // Bob sees the shared Family document, but NOT Alice's private passport!
+      // Bob sees ONLY Document A1, NOT Document A2
       expect(bobDocController.state.documents.length, equals(1));
       expect(
         bobDocController.state.documents.first.decryptedName,
-        equals('Shared_Family_HouseDeed.pdf'),
+        equals('Document_A1_Notes.pdf'),
       );
       expect(
         bobDocController.state.documents.any(
-          (d) => d.decryptedName == 'Alice_Private_Passport.pdf',
+          (d) => d.decryptedName == 'Document_A2_Private.pdf',
         ),
         isFalse,
       );
+
+      // Shared with Me scope shows Document A1
+      bobDocController.setOwnershipScope(DocumentOwnershipScope.sharedWithMe);
+      expect(bobDocController.state.documents.length, equals(1));
+      bobDocController.setOwnershipScope(DocumentOwnershipScope.myVault);
+      expect(bobDocController.state.documents, isEmpty);
+    });
+
+    test('Per-user permission enforcement, expiry, and revocation work end-to-end', () async {
+      final docRepo = InMemoryDocumentRepository();
+      final storageRepo = InMemoryStorageRepository();
+      final syncQueue = MockSyncQueueRepository();
+      final crypto = CryptographyCryptoService();
+      final uploadUseCase = UploadDocumentUseCase(
+        cryptoService: crypto,
+        documentRepository: docRepo,
+        syncQueueRepository: syncQueue,
+        storageRepository: storageRepo,
+      );
+      final shareUseCase = ShareDocumentUseCase(
+        documentRepository: docRepo,
+        familyRepository: familyRepo,
+        storageRepository: storageRepo,
+      );
+      final revokeUseCase = RevokeDocumentAccessUseCase(
+        documentRepository: docRepo,
+        familyRepository: familyRepo,
+      );
+      final downloadUseCase = DownloadAndDecryptUseCase(
+        cryptoService: crypto,
+        documentRepository: docRepo,
+        storageRepository: storageRepo,
+        familyRepository: familyRepo,
+      );
+
+      final docA1 = await uploadUseCase.execute(
+        fileBytes: Uint8List.fromList([10, 20, 30]),
+        fileName: 'Contract_A1.pdf',
+        category: 'Work',
+        ownerUid: 'uid-user-1',
+      );
+
+      // 1. Share directly by email with view-only permission
+      await shareUseCase.execute(
+        documentId: docA1.document.documentId,
+        granterUid: 'uid-user-1',
+        recipientUid: 'email-charlie@example.com',
+        recipientEmail: 'charlie@example.com',
+        recipientDisplayName: 'Charlie',
+        canView: true,
+        canDownload: false,
+      );
+
+      final decrypted = await downloadUseCase.execute(
+        documentId: docA1.document.documentId,
+        recipientUid: 'uid-charlie-real',
+        recipientEmail: 'charlie@example.com',
+      );
+      expect(decrypted.permission, isNotNull);
+      expect(decrypted.permission!.canDownload, isFalse);
+
+      // 2. Revoke Charlie's access -> decryption & permission check immediately fail
+      await revokeUseCase.execute(
+        documentId: docA1.document.documentId,
+        revokerUid: 'uid-user-1',
+        granteeId: 'email-charlie@example.com',
+        granteeEmail: 'charlie@example.com',
+      );
+
+      expect(
+        () => downloadUseCase.execute(
+          documentId: docA1.document.documentId,
+          recipientUid: 'uid-charlie-real',
+          recipientEmail: 'charlie@example.com',
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      // 3. Expired permission denies access
+      await shareUseCase.execute(
+        documentId: docA1.document.documentId,
+        granterUid: 'uid-user-1',
+        recipientUid: 'uid-user-2',
+        recipientEmail: 'bob@example.com',
+        expiresAt: DateTime.now().toUtc().subtract(const Duration(minutes: 5)),
+      );
+
+      expect(
+        () => downloadUseCase.execute(
+          documentId: docA1.document.documentId,
+          recipientUid: 'uid-user-2',
+          recipientEmail: 'bob@example.com',
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('Access Expired'),
+          ),
+        ),
+      );
+    });
+
+    test('User can create and switch between multiple Shared Spaces', () async {
+      await inviterController.createFamily('CS Study Group');
+      await inviterController.createFamily('Project Team');
+
+      expect(inviterController.state.spaces.length, equals(2));
+      expect(inviterController.state.family!.name, equals('Project Team'));
+
+      final studySpace = inviterController.state.spaces.firstWhere(
+        (s) => s.name == 'CS Study Group',
+      );
+      await inviterController.switchSpace(studySpace.familyId);
+      expect(inviterController.state.family!.name, equals('CS Study Group'));
     });
 
     test('When recipient accepts invitation, inviter outgoing invitations no longer show it as pending', () async {

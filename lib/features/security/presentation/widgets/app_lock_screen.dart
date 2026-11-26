@@ -34,7 +34,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Sign Out of FamilyVault?'),
+        title: const Text('Sign Out of DocNet?'),
         content: const Text(
           'Signing out will clear the current active session. You will need your account password to sign back in.',
         ),
@@ -135,7 +135,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
 
                       // Title
                       Text(
-                        'FamilyVault Locked',
+                        'DocNet Locked',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w900,

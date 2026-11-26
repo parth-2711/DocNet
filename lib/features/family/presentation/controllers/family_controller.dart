@@ -17,10 +17,12 @@ import '../../domain/entities/family_space.dart';
 import '../../domain/repositories/family_invitation_repository.dart';
 import '../../domain/repositories/family_repository.dart';
 import '../../domain/usecases/create_family_usecase.dart';
+import '../../domain/usecases/revoke_document_access_usecase.dart';
 import '../../domain/usecases/share_document_usecase.dart';
 
 class FamilyState {
   final FamilySpace? family;
+  final List<FamilySpace> spaces;
   final List<FamilyMember> members;
   final List<FamilyInvitation> incomingInvitations;
   final List<FamilyInvitation> outgoingInvitations;
@@ -29,6 +31,7 @@ class FamilyState {
 
   const FamilyState({
     this.family,
+    this.spaces = const [],
     this.members = const [],
     this.incomingInvitations = const [],
     this.outgoingInvitations = const [],
@@ -38,6 +41,7 @@ class FamilyState {
 
   FamilyState copyWith({
     FamilySpace? family,
+    List<FamilySpace>? spaces,
     List<FamilyMember>? members,
     List<FamilyInvitation>? incomingInvitations,
     List<FamilyInvitation>? outgoingInvitations,
@@ -46,6 +50,7 @@ class FamilyState {
   }) {
     return FamilyState(
       family: family ?? this.family,
+      spaces: spaces ?? this.spaces,
       members: members ?? this.members,
       incomingInvitations: incomingInvitations ?? this.incomingInvitations,
       outgoingInvitations: outgoingInvitations ?? this.outgoingInvitations,
@@ -74,9 +79,24 @@ final createFamilyUseCaseProvider = Provider<CreateFamilyUseCase>((ref) {
 final shareDocumentUseCaseProvider = Provider<ShareDocumentUseCase>((ref) {
   final docRepo = ref.watch(documentRepositoryProvider);
   final familyRepo = ref.watch(familyRepositoryProvider);
+  final storageRepo = ref.watch(storageRepositoryProvider);
   final activityRepo = ref.watch(activityRepositoryProvider);
 
   return ShareDocumentUseCase(
+    documentRepository: docRepo,
+    familyRepository: familyRepo,
+    storageRepository: storageRepo,
+    activityRepository: activityRepo,
+  );
+});
+
+final revokeDocumentAccessUseCaseProvider =
+    Provider<RevokeDocumentAccessUseCase>((ref) {
+  final docRepo = ref.watch(documentRepositoryProvider);
+  final familyRepo = ref.watch(familyRepositoryProvider);
+  final activityRepo = ref.watch(activityRepositoryProvider);
+
+  return RevokeDocumentAccessUseCase(
     documentRepository: docRepo,
     familyRepository: familyRepo,
     activityRepository: activityRepo,
@@ -133,6 +153,7 @@ class FamilyController extends StateNotifier<FamilyState> {
   Future<void> loadFamily() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
+      final spaces = await familyRepo.getUserFamilies(currentUserUid);
       final family = await familyRepo.getUserFamily(currentUserUid);
       var members = <FamilyMember>[];
 
@@ -149,7 +170,7 @@ class FamilyController extends StateNotifier<FamilyState> {
                     currentDisplayName.isNotEmpty &&
                     currentDisplayName != 'User')
                 ? currentDisplayName
-                : 'Family Owner',
+                : 'Space Owner',
             email: (family.ownerUid == currentUserUid) ? currentUserEmail : '',
             role: FamilyRole.owner,
             joinedAt: family.createdAt,
@@ -215,6 +236,7 @@ class FamilyController extends StateNotifier<FamilyState> {
 
       state = state.copyWith(
         family: family,
+        spaces: spaces,
         members: members,
         incomingInvitations: incoming,
         outgoingInvitations: outgoing,
@@ -255,6 +277,12 @@ class FamilyController extends StateNotifier<FamilyState> {
     return null;
   }
 
+  /// Switches the user's active space when belonging to multiple groups.
+  Future<void> switchSpace(String familyId) async {
+    await familyRepo.setActiveFamily(uid: currentUserUid, familyId: familyId);
+    await loadFamily();
+  }
+
   Future<void> createFamily(String familyName) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -264,6 +292,10 @@ class FamilyController extends StateNotifier<FamilyState> {
         ownerDisplayName: currentDisplayName,
         ownerEmail: currentUserEmail,
       );
+      await familyRepo.setActiveFamily(
+        uid: currentUserUid,
+        familyId: family.familyId,
+      );
       if (activityRepo != null) {
         await activityRepo!.logEvent(
           ActivityEvent(
@@ -271,7 +303,7 @@ class FamilyController extends StateNotifier<FamilyState> {
             familyId: family.familyId,
             eventType: ActivityEventType.familyCreated,
             actorUid: currentUserUid,
-            summary: 'Created family space "$familyName"',
+            summary: 'Created shared space "$familyName"',
             timestamp: DateTime.now().toUtc(),
           ),
         );
@@ -289,7 +321,7 @@ class FamilyController extends StateNotifier<FamilyState> {
     FamilyRole role = FamilyRole.member,
   }) async {
     if (state.family == null) {
-      throw const FormatException('You must have a family space to invite members.');
+      throw const FormatException('You must have a shared space to invite members.');
     }
 
     final normalizedEmail = recipientEmail.trim().toLowerCase();
@@ -306,7 +338,7 @@ class FamilyController extends StateNotifier<FamilyState> {
     if (state.members.any(
       (m) => m.email.trim().toLowerCase() == normalizedEmail,
     )) {
-      throw const FormatException('This user is already a member of this family space.');
+      throw const FormatException('This user is already a member of this shared space.');
     }
 
     // Check if an invitation is already pending
@@ -370,7 +402,7 @@ class FamilyController extends StateNotifier<FamilyState> {
             eventType: ActivityEventType.familyInvitationSent,
             actorUid: currentUserUid,
             targetMemberUid: targetUid,
-            summary: 'Sent family invitation to $effectiveDisplayName ($normalizedEmail)',
+            summary: 'Sent space invitation to $effectiveDisplayName ($normalizedEmail)',
             metadata: {'role': role.name, 'email': normalizedEmail},
             timestamp: DateTime.now().toUtc(),
           ),
@@ -418,16 +450,11 @@ class FamilyController extends StateNotifier<FamilyState> {
         await familyRepo.saveFamily(targetFamily);
       }
 
-      // If user had a solo placeholder family with 1 member, clear it
-      if (state.family != null &&
-          state.family!.familyId != invitation.familyId &&
-          state.members.length <= 1) {
-        try {
-          await familyRepo.removeFamily(state.family!.familyId);
-        } catch (_) {}
-      }
-
       await familyRepo.addMember(newMember);
+      await familyRepo.setActiveFamily(
+        uid: currentUserUid,
+        familyId: invitation.familyId,
+      );
       await invitationRepo.updateInvitationStatus(
         invitationId: invitationId,
         status: InvitationStatus.accepted,
@@ -440,7 +467,7 @@ class FamilyController extends StateNotifier<FamilyState> {
             familyId: invitation.familyId,
             eventType: ActivityEventType.familyMemberJoined,
             actorUid: currentUserUid,
-            summary: 'Joined family space "${invitation.familyName}" as ${invitation.role.name}',
+            summary: 'Joined shared space "${invitation.familyName}" as ${invitation.role.name}',
             timestamp: DateTime.now().toUtc(),
           ),
         );
@@ -481,12 +508,12 @@ class FamilyController extends StateNotifier<FamilyState> {
     }
   }
 
-  /// Allows the current user (if non-owner) to voluntarily leave their current family space.
+  /// Allows the current user (if non-owner) to voluntarily leave their current shared space.
   Future<void> leaveFamily() async {
     if (state.family == null) return;
     if (state.family!.ownerUid == currentUserUid) {
       throw const FormatException(
-        'The owner cannot leave the family group. Delete the space or transfer ownership instead.',
+        'The owner cannot leave the shared space. Delete the space or transfer ownership instead.',
       );
     }
 
@@ -505,7 +532,7 @@ class FamilyController extends StateNotifier<FamilyState> {
             eventType: ActivityEventType.familyMemberRemoved,
             actorUid: currentUserUid,
             targetMemberUid: currentUserUid,
-            summary: '$currentDisplayName left the family space "${state.family!.name}"',
+            summary: '$currentDisplayName left the shared space "${state.family!.name}"',
             timestamp: DateTime.now().toUtc(),
           ),
         );

@@ -1,11 +1,11 @@
 {
-    "name": "docnet",
-    "short_name": "docnet",
+    "name": "DocNet",
+    "short_name": "DocNet",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Zero-knowledge encrypted document vault and secure workspace sharing for everyone.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -21,57 +21,121 @@ class FamilyScreen extends ConsumerWidget {
   const FamilyScreen({super.key});
 
   void _showCreateFamilyDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController(text: 'My Family Group');
+    final nameController = TextEditingController(text: 'Study Group');
+    String selectedPreset = 'Study Group';
+
+    final presets = <String, Map<String, dynamic>>{
+      'Study Group': {
+        'icon': Icons.school_outlined,
+        'defaultName': 'CS Study Group',
+        'subtitle': 'Notes, assignments & exam prep',
+      },
+      'Work / Team': {
+        'icon': Icons.work_outline,
+        'defaultName': 'Project Team',
+        'subtitle': 'Contracts, resumes & client docs',
+      },
+      'Family / Home': {
+        'icon': Icons.home_outlined,
+        'defaultName': 'Home Vault',
+        'subtitle': 'IDs, property & medical records',
+      },
+      'Friends / Club': {
+        'icon': Icons.groups_outlined,
+        'defaultName': 'Club & Events',
+        'subtitle': 'Trips, hostel & shared bills',
+      },
+    };
+    nameController.text = presets[selectedPreset]!['defaultName'] as String;
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Create Family Group'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Family Group Name',
-            hintText: 'e.g. Godhani Family, Home Vault',
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+          title: const Text('Create Shared Space'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose a space type for your group:',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presets.entries.map((entry) {
+                    final isSelected = selectedPreset == entry.key;
+                    return ChoiceChip(
+                      avatar: Icon(entry.value['icon'] as IconData, size: 16),
+                      label: Text(entry.key, style: const TextStyle(fontSize: 12)),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setDialogState(() {
+                          selectedPreset = entry.key;
+                          nameController.text =
+                              entry.value['defaultName'] as String;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Space / Group Name',
+                    hintText: 'e.g. CS Study Group, Project Team, Home Vault',
+                    helperText: presets[selectedPreset]!['subtitle'] as String,
+                  ),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              if (name.isNotEmpty) {
-                Navigator.pop(dialogCtx);
-                await ref
-                    .read(familyControllerProvider.notifier)
-                    .createFamily(name);
-                if (context.mounted) {
-                  final familyState = ref.read(familyControllerProvider);
-                  if (familyState.errorMessage != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Failed to create group: ${familyState.errorMessage}',
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isNotEmpty) {
+                  Navigator.pop(dialogCtx);
+                  await ref
+                      .read(familyControllerProvider.notifier)
+                      .createFamily(name);
+                  if (context.mounted) {
+                    final familyState = ref.read(familyControllerProvider);
+                    if (familyState.errorMessage != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Failed to create space: ${familyState.errorMessage}',
+                          ),
                         ),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Family Group "$name" created successfully!',
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Shared Space "$name" created successfully!',
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   }
                 }
-              }
-            },
-            child: const Text('Create Group'),
-          ),
-        ],
+              },
+              child: const Text('Create Space'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -122,7 +186,7 @@ class FamilyScreen extends ConsumerWidget {
             )) {
               setDialogState(() {
                 matchedUser = null;
-                statusMessage = 'User is already a member of this family space.';
+                statusMessage = 'User is already a member of this shared space.';
                 isSuccess = false;
                 isChecking = false;
               });
@@ -206,7 +270,7 @@ class FamilyScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 const Text(
-                  'Invite Family Member',
+                  'Invite Member',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -320,7 +384,7 @@ class FamilyScreen extends ConsumerWidget {
                     initialValue: selectedRole,
                     isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: 'Family Role',
+                      labelText: 'Member Role',
                       filled: true,
                       fillColor: isDark
                           ? AppColors.darkSurfaceVariant.withAlpha(80)
@@ -444,7 +508,7 @@ class FamilyScreen extends ConsumerWidget {
     if (otherMembers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No other family members to request from.'),
+          content: Text('No other space members to request from.'),
         ),
       );
       return;
@@ -484,7 +548,7 @@ class FamilyScreen extends ConsumerWidget {
                   controller: titleController,
                   decoration: const InputDecoration(
                     labelText: 'Document Needed',
-                    hintText: 'e.g. Passport copy, Birth Certificate',
+                    hintText: 'e.g. Semester Transcript, Signed NDA, ID Card',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.standard),
@@ -492,7 +556,7 @@ class FamilyScreen extends ConsumerWidget {
                   controller: notesController,
                   decoration: const InputDecoration(
                     labelText: 'Notes (Optional)',
-                    hintText: 'e.g. Needed for school admission',
+                    hintText: 'e.g. Needed for team project or onboarding',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.compact),
@@ -620,7 +684,7 @@ class FamilyScreen extends ConsumerWidget {
                     .uploadDocument(
                       fileBytes: bytes,
                       fileName: fileName,
-                      category: 'Family',
+                      category: 'Shared',
                       description: noteController.text.trim().isEmpty
                           ? 'Fulfilled request: ${req.title}'
                           : noteController.text.trim(),
@@ -676,7 +740,7 @@ class FamilyScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Family Vault'),
+        title: const Text('Shared Spaces'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -686,7 +750,7 @@ class FamilyScreen extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Refreshed family data & invitations'),
+                    content: Text('Refreshed spaces & invitations'),
                     duration: Duration(seconds: 1),
                   ),
                 );
@@ -753,7 +817,7 @@ class FamilyScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Strict Cryptographic Isolation',
+                          'Zero-Knowledge Workspace Isolation',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
@@ -761,7 +825,7 @@ class FamilyScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Family members can only access documents explicitly shared via wrapped key envelopes. Personal vault documents remain strictly inaccessible.',
+                          'Members can only access documents explicitly shared via wrapped key envelopes. Your personal vault remains strictly private.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isDark
                                 ? AppColors.darkTextSecondary
@@ -813,7 +877,7 @@ class FamilyScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'Family Space Invitation (${state.incomingInvitations.length})',
+                          'Space Invitation (${state.incomingInvitations.length})',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -967,7 +1031,7 @@ class FamilyScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.standard),
                     Text(
-                      'Create a Family Space',
+                      'Create a Shared Space',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                         fontSize: 17,
@@ -975,13 +1039,25 @@ class FamilyScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.compact),
                     Text(
-                      'Set up a shared space to securely exchange documents with family members while preserving personal privacy.',
+                      'Collaborate securely with classmates, work teams, clients, or family. Share notes, project files, and documents without exposing your private vault.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.lightTextSecondary,
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.standard),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: const [
+                        _AudiencePill(label: 'Students', icon: Icons.school_outlined),
+                        _AudiencePill(label: 'Professionals', icon: Icons.work_outline),
+                        _AudiencePill(label: 'Teams', icon: Icons.groups_outlined),
+                        _AudiencePill(label: 'Family', icon: Icons.home_outlined),
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.large),
                     ElevatedButton.icon(
@@ -995,14 +1071,70 @@ class FamilyScreen extends ConsumerWidget {
                         ),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Create Family Space'),
+                      label: const Text('Create Shared Space'),
                       onPressed: () => _showCreateFamilyDialog(context, ref),
                     ),
                   ],
                 ),
               )
             else ...[
-              // Active Family Space Details
+              // Multi-Space Switcher & Create Space Row
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.compact),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ...state.spaces.map((space) {
+                        final isSelected =
+                            space.familyId == state.family?.familyId;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            avatar: Icon(
+                              Icons.workspaces_rounded,
+                              size: 16,
+                              color: isSelected
+                                  ? (isDark
+                                        ? AppColors.darkBackground
+                                        : Colors.white)
+                                  : null,
+                            ),
+                            label: Text(
+                              space.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              if (!isSelected) {
+                                ref
+                                    .read(familyControllerProvider.notifier)
+                                    .switchSpace(space.familyId);
+                              }
+                            },
+                          ),
+                        );
+                      }),
+                      ActionChip(
+                        avatar: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text(
+                          'New Space',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onPressed: () => _showCreateFamilyDialog(context, ref),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Active Shared Space Details
               Container(
                 padding: const EdgeInsets.all(AppSpacing.standard),
                 decoration: BoxDecoration(
@@ -1093,7 +1225,7 @@ class FamilyScreen extends ConsumerWidget {
                                   ? member.displayName
                                   : (member.email.contains('@')
                                         ? member.email.split('@').first
-                                        : 'Family Member'));
+                                        : 'Space Member'));
 
                         final displayEmail =
                             isCurrentUser &&
@@ -1151,13 +1283,16 @@ class FamilyScreen extends ConsumerWidget {
                               ),
                               subtitle: Row(
                                 children: [
-                                  Text(
-                                    displayEmail,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
+                                  Flexible(
+                                    child: Text(
+                                      displayEmail,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                            ? AppColors.darkTextSecondary
+                                            : AppColors.lightTextSecondary,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -1199,7 +1334,7 @@ class FamilyScreen extends ConsumerWidget {
                                         size: 20,
                                       ),
                                       tooltip: isCurrentUser
-                                          ? 'Leave Family Space'
+                                          ? 'Leave Shared Space'
                                           : 'Remove Member',
                                       onPressed: () async {
                                         final confirm = await showDialog<bool>(
@@ -1207,12 +1342,12 @@ class FamilyScreen extends ConsumerWidget {
                                           builder: (ctx) => AlertDialog(
                                             title: Text(
                                               isCurrentUser
-                                                  ? 'Leave Family Space?'
+                                                  ? 'Leave Shared Space?'
                                                   : 'Remove Member?',
                                             ),
                                             content: Text(
                                               isCurrentUser
-                                                  ? 'Are you sure you want to leave "${state.family!.name}"? You will lose access to shared family documents.'
+                                                  ? 'Are you sure you want to leave "${state.family!.name}"? You will lose access to shared space documents.'
                                                   : 'Remove $displayTitle from "${state.family!.name}"? They will lose access to shared documents.',
                                             ),
                                             actions: [
@@ -1620,7 +1755,7 @@ class FamilyScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.standard),
 
-              // Shared Family Documents Card
+              // Shared Space Documents Card
               Container(
                 padding: const EdgeInsets.all(AppSpacing.standard),
                 decoration: BoxDecoration(
@@ -1643,7 +1778,7 @@ class FamilyScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Shared Family Documents (${ref.watch(documentsControllerProvider).rawDocuments.where((d) => d.category == 'Family').length})',
+                            'Shared Space Documents (${ref.watch(documentsControllerProvider).rawDocuments.where((d) => d.category == 'Shared' || d.category == 'Family' || d.ownerUid != currentUid).length})',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
@@ -1661,18 +1796,23 @@ class FamilyScreen extends ConsumerWidget {
                     ),
                     Builder(
                       builder: (context) {
-                        final familyDocs = ref
+                        final spaceDocs = ref
                             .watch(documentsControllerProvider)
                             .rawDocuments
-                            .where((d) => d.category == 'Family')
+                            .where(
+                              (d) =>
+                                  d.category == 'Shared' ||
+                                  d.category == 'Family' ||
+                                  d.ownerUid != currentUid,
+                            )
                             .toList();
-                        if (familyDocs.isEmpty) {
+                        if (spaceDocs.isEmpty) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(
                               vertical: AppSpacing.compact,
                             ),
                             child: Text(
-                              'No shared family documents yet. Share a document from your vault or fulfill a request above.',
+                              'No shared documents yet. Share any file from your vault or fulfill a request above.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isDark
@@ -1685,9 +1825,9 @@ class FamilyScreen extends ConsumerWidget {
                         return ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: familyDocs.length,
+                          itemCount: spaceDocs.length,
                           itemBuilder: (context, index) {
-                            final doc = familyDocs[index];
+                            final doc = spaceDocs[index];
                             return Material(
                               color: Colors.transparent,
                               child: ListTile(
@@ -1708,14 +1848,14 @@ class FamilyScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 title: Text(
-                                  doc.decryptedName ?? 'Family Document',
+                                  doc.decryptedName ?? 'Shared Document',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'Size: ${((doc.originalSizeBytes) / 1024).toStringAsFixed(1)} KB • Encrypted with AES-256-GCM',
+                                  '${doc.category} • ${((doc.originalSizeBytes) / 1024).toStringAsFixed(1)} KB • AES-256-GCM',
                                   style: const TextStyle(fontSize: 11),
                                 ),
                                 trailing: const Icon(
@@ -1748,7 +1888,7 @@ class FamilyScreen extends ConsumerWidget {
                   ),
                   icon: const Icon(Icons.group_add_rounded),
                   label: const Text(
-                    'Invite Family Member',
+                    'Invite Member',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   onPressed: () => _showInviteDialog(context, ref),
@@ -1761,5 +1901,41 @@ class FamilyScreen extends ConsumerWidget {
       ),
     ),
   );
+  }
+}
+
+class _AudiencePill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+
+  const _AudiencePill({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkSurfaceVariant.withAlpha(110)
+            : AppColors.lightSurfaceVariant.withAlpha(130),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }

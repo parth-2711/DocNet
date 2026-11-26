@@ -19,7 +19,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Verify unauthenticated redirect displays LoginScreen
-      expect(find.text('FamilyVault'), findsWidgets);
+      expect(find.text('DocNet'), findsWidgets);
       expect(find.text('Sign In'), findsOneWidget);
       expect(find.text('Email address'), findsOneWidget);
 
@@ -44,7 +44,7 @@ void main() {
       expect(find.byType(BottomNavigationBar), findsOneWidget);
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Documents'), findsOneWidget);
-      expect(find.text('Family'), findsOneWidget);
+      expect(find.text('Spaces'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
     },
   );

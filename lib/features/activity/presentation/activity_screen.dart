@@ -44,7 +44,7 @@ class ActivityScreen extends ConsumerWidget {
                 _buildFilterChip(context, ref, 'All', state.filter),
                 _buildFilterChip(context, ref, 'Documents', state.filter),
                 _buildFilterChip(context, ref, 'Sharing', state.filter),
-                _buildFilterChip(context, ref, 'Family', state.filter),
+                _buildFilterChip(context, ref, 'Spaces', state.filter),
                 _buildFilterChip(context, ref, 'Security', state.filter),
               ],
             ),

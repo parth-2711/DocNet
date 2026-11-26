@@ -38,6 +38,7 @@ class ActivityState {
         case 'Sharing':
           return e.eventType == ActivityEventType.shareGranted ||
               e.eventType == ActivityEventType.shareRevoked;
+        case 'Spaces':
         case 'Family':
           return e.eventType == ActivityEventType.familyCreated ||
               e.eventType == ActivityEventType.familyInvitationSent ||

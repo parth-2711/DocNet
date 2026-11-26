@@ -331,7 +331,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // Brand Display Title
                       Text(
-                        'FamilyVault',
+                        'DocNet',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w900,
@@ -341,7 +341,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "Your family's documents. One secure place.",
+                        'Encrypted vault for personal, study & work documents.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: isDark

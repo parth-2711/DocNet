@@ -6,6 +6,7 @@ import '../../../activity/domain/entities/activity_event.dart';
 import '../../../activity/domain/repositories/activity_repository.dart';
 import '../../../activity/presentation/controllers/activity_controller.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../family/presentation/controllers/family_controller.dart';
 import '../../../security/data/crypto/cryptography_crypto_service.dart';
 import '../../../security/domain/services/crypto_service.dart';
 import '../../../sync/data/database/app_database.dart';
@@ -38,8 +39,21 @@ class DocumentsState {
     this.errorMessage,
   }) : rawDocuments = documents ?? rawDocuments;
 
-  List<DocumentRecord> get documents =>
-      DocumentSearchEngine.applyFilter(documents: rawDocuments, filter: filter);
+  List<DocumentRecord> get documents {
+    final sharedIds = rawDocuments
+        .where((d) => filter.ownerUid != null && d.ownerUid != filter.ownerUid)
+        .map((d) => d.documentId)
+        .toSet();
+    final effectiveFilter = sharedIds.isEmpty
+        ? filter
+        : filter.copyWith(
+            sharedDocumentIds: {...filter.sharedDocumentIds, ...sharedIds},
+          );
+    return DocumentSearchEngine.applyFilter(
+      documents: rawDocuments,
+      filter: effectiveFilter,
+    );
+  }
 
   String get selectedCategory => filter.category;
 
@@ -104,11 +118,13 @@ final downloadAndDecryptUseCaseProvider = Provider<DownloadAndDecryptUseCase>((
   final cryptoService = ref.watch(cryptoServiceProvider);
   final docRepo = ref.watch(documentRepositoryProvider);
   final storageRepo = ref.watch(storageRepositoryProvider);
+  final familyRepo = ref.watch(familyRepositoryProvider);
 
   return DownloadAndDecryptUseCase(
     cryptoService: cryptoService,
     documentRepository: docRepo,
     storageRepository: storageRepo,
+    familyRepository: familyRepo,
   );
 });
 
@@ -124,6 +140,7 @@ final documentsControllerProvider =
         docRepo: docRepo,
         uploadUseCase: uploadUseCase,
         currentUserUid: authState.userProfile?.uid ?? 'guest-uid',
+        currentUserEmail: authState.userProfile?.email,
         activityRepo: activityRepo,
         syncRepo: syncRepo,
       );
@@ -133,6 +150,7 @@ class DocumentsController extends StateNotifier<DocumentsState> {
   final DocumentRepository docRepo;
   final UploadDocumentUseCase uploadUseCase;
   final String currentUserUid;
+  final String? currentUserEmail;
   final ActivityRepository? activityRepo;
   final SyncQueueRepository? syncRepo;
 
@@ -140,6 +158,7 @@ class DocumentsController extends StateNotifier<DocumentsState> {
     required this.docRepo,
     required this.uploadUseCase,
     required this.currentUserUid,
+    this.currentUserEmail,
     this.activityRepo,
     this.syncRepo,
   }) : super(DocumentsState(filter: DocumentFilter(ownerUid: currentUserUid))) {
@@ -149,11 +168,23 @@ class DocumentsController extends StateNotifier<DocumentsState> {
   Future<void> loadDocuments() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final docs = await docRepo.getDocuments(ownerUid: currentUserUid);
+      final docs = await docRepo.getDocuments(
+        ownerUid: currentUserUid,
+        ownerEmail: currentUserEmail,
+      );
       state = state.copyWith(rawDocuments: docs, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
+  }
+
+  void setOwnershipScope(DocumentOwnershipScope scope) {
+    state = state.copyWith(
+      filter: state.filter.copyWith(
+        ownershipScope: scope,
+        ownerUid: currentUserUid,
+      ),
+    );
   }
 
   Future<void> selectCategory(String category) async {

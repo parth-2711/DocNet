@@ -6,6 +6,7 @@ class KeyEnvelope {
   final String documentId;
   final String recipientType; // 'user' or 'familyGroup'
   final String recipientId; // UID or familyId
+  final String? recipientEmail; // Normalized email for cross-device matching
   final String wrappedDek; // Base64 wrapped key
   final String wrappingAlgorithm;
   final int keyEpoch;
@@ -17,6 +18,7 @@ class KeyEnvelope {
     required this.documentId,
     required this.recipientType,
     required this.recipientId,
+    this.recipientEmail,
     required this.wrappedDek,
     required this.wrappingAlgorithm,
     this.keyEpoch = 1,
@@ -30,6 +32,7 @@ class KeyEnvelope {
       'documentId': documentId,
       'recipientType': recipientType,
       'recipientId': recipientId,
+      if (recipientEmail != null) 'recipientEmail': recipientEmail,
       'wrappedDek': wrappedDek,
       'wrappingAlgorithm': wrappingAlgorithm,
       'keyEpoch': keyEpoch,
@@ -44,6 +47,7 @@ class KeyEnvelope {
       documentId: map['documentId'] as String,
       recipientType: map['recipientType'] as String,
       recipientId: map['recipientId'] as String,
+      recipientEmail: (map['recipientEmail'] as String?)?.toLowerCase(),
       wrappedDek: map['wrappedDek'] as String,
       wrappingAlgorithm: map['wrappingAlgorithm'] as String,
       keyEpoch: map['keyEpoch'] as int? ?? 1,

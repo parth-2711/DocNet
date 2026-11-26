@@ -2,8 +2,9 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'FamilyVault';
-  static const String appTagline = "Your family's documents. One secure place.";
+  static const String appName = 'DocNet';
+  static const String appTagline =
+      'Your documents. Encrypted & shared securely.';
 
   // DOC-003: Max file size target (25 MB)
   static const int maxFileSizeBytes = 25 * 1024 * 1024;
@@ -11,16 +12,17 @@ class AppConstants {
   // DOC-002: Supported initial file formats
   static const List<String> supportedExtensions = ['pdf', 'jpeg', 'jpg', 'png'];
 
-  // DOC-005: Default document categories
+  // DOC-005: Default document categories designed for students, professionals & general users
   static const List<String> defaultCategories = [
     'Identity',
     'Education',
-    'Driving',
+    'Work',
+    'Certificates',
     'Financial',
     'Medical',
     'Property',
-    'Employment',
     'Insurance',
+    'Shared',
     'Other',
   ];
 

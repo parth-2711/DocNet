@@ -108,7 +108,7 @@ void main() {
         await tester.pump();
 
         expect(find.byType(AppLockScreen), findsOneWidget);
-        expect(find.text('FamilyVault Locked'), findsOneWidget);
+        expect(find.text('DocNet Locked'), findsOneWidget);
         expect(find.text('Unlock Vault'), findsOneWidget);
         expect(find.text('Protected Content'), findsNothing);
       },
@@ -127,8 +127,8 @@ void main() {
         final now = DateTime.now().toUtc();
         final profileWithBio = UserProfile(
           uid: 'bio-test-uid',
-          email: 'parth@example.com',
-          displayName: 'Parth Godhani',
+          email: 'email@example.com',
+          displayName: 'Your Name',
           biometricsEnabled: true,
           createdAt: now,
           updatedAt: now,

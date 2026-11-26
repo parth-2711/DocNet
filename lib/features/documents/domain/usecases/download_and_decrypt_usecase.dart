@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import '../../../family/domain/entities/document_permission.dart';
+import '../../../family/domain/repositories/family_repository.dart';
 import '../../../security/domain/entities/encrypted_file_container.dart';
 import '../../../security/domain/services/crypto_service.dart';
 import '../entities/document_record.dart';
@@ -13,12 +15,14 @@ class DecryptedDocumentResult {
   final Map<String, dynamic> metadata;
   final DocumentRecord document;
   final DocumentVersion version;
+  final DocumentPermission? permission;
 
   const DecryptedDocumentResult({
     required this.plaintextBytes,
     required this.metadata,
     required this.document,
     required this.version,
+    this.permission,
   });
 
   String get fileName => metadata['name'] as String? ?? 'Document';
@@ -32,17 +36,20 @@ class DownloadAndDecryptUseCase {
   final CryptoService cryptoService;
   final DocumentRepository documentRepository;
   final StorageRepository storageRepository;
+  final FamilyRepository? familyRepository;
 
   DownloadAndDecryptUseCase({
     required this.cryptoService,
     required this.documentRepository,
     required this.storageRepository,
+    this.familyRepository,
   });
 
   /// Decrypts the specified document version on-device for authorized recipient.
   Future<DecryptedDocumentResult> execute({
     required String documentId,
     required String recipientUid,
+    String? recipientEmail,
     String? versionId,
   }) async {
     // 1. Fetch document metadata
@@ -51,7 +58,27 @@ class DownloadAndDecryptUseCase {
       throw StateError('Document not found: $documentId');
     }
 
-    // 2. Fetch specific version or current version
+    // 2. Enforce explicit per-user permissions for non-owners
+    DocumentPermission? activePermission;
+    if (document.ownerUid != recipientUid && familyRepository != null) {
+      activePermission = await familyRepository!.getPermission(
+        documentId: documentId,
+        granteeId: recipientUid,
+        granteeEmail: recipientEmail,
+      );
+      if (activePermission == null || !activePermission.canView) {
+        throw StateError(
+          'Access Denied: You do not have permission to view this document.',
+        );
+      }
+      if (activePermission.isExpired) {
+        throw StateError(
+          'Access Expired: Your permission to view this document has expired.',
+        );
+      }
+    }
+
+    // 3. Fetch specific version or current version
     final targetVersionId = versionId ?? document.currentVersionId;
     final versions = await documentRepository.getVersions(documentId);
     final version = versions.firstWhere(
@@ -61,10 +88,11 @@ class DownloadAndDecryptUseCase {
       ),
     );
 
-    // 3. Fetch authorized key envelope (Boundary C & KEY-001)
+    // 4. Fetch authorized key envelope (Boundary C & KEY-001)
     final envelope = await documentRepository.getKeyEnvelope(
       documentId: documentId,
       recipientId: recipientUid,
+      recipientEmail: recipientEmail,
     );
     if (envelope == null) {
       throw StateError(
@@ -72,10 +100,10 @@ class DownloadAndDecryptUseCase {
       );
     }
 
-    // 4. Unwrap DEK locally
+    // 5. Unwrap DEK locally
     final dek = Uint8List.fromList(base64Decode(envelope.wrappedDek));
 
-    // 5. Download ciphertext bytes from storage
+    // 6. Download ciphertext bytes from storage (local or synced cloud blob)
     final ciphertextBytes = await storageRepository.getObject(
       version.storageObjectRef,
     );
@@ -85,7 +113,7 @@ class DownloadAndDecryptUseCase {
       );
     }
 
-    // 6. Verify cryptographic integrity before opening (VER-008)
+    // 7. Verify cryptographic integrity before opening (VER-008)
     final computedSha256 = await cryptoService.computeSha256(ciphertextBytes);
     if (computedSha256.toLowerCase() != version.sha256.toLowerCase()) {
       throw const FormatException(
@@ -93,16 +121,16 @@ class DownloadAndDecryptUseCase {
       );
     }
 
-    // 7. Parse binary container
+    // 8. Parse binary container
     final container = EncryptedFileContainer.fromBinary(ciphertextBytes);
 
-    // 8. Decrypt file payload with canonical AAD
+    // 9. Decrypt file payload with canonical AAD
     final plaintext = await cryptoService.decryptFile(
       container: container,
       dek: dek,
     );
 
-    // 9. Decrypt authenticated metadata
+    // 10. Decrypt authenticated metadata
     final metadata = await cryptoService.decryptMetadata(
       encryptedMetadata: version.encryptedMetadata,
       key: dek,
@@ -113,6 +141,7 @@ class DownloadAndDecryptUseCase {
       metadata: metadata,
       document: document,
       version: version,
+      permission: activePermission,
     );
   }
 }

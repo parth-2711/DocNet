@@ -135,7 +135,7 @@ class AppLockController extends StateNotifier<AppLockState> {
 
       final success = await _localAuth.authenticate(
         localizedReason:
-            'Scan fingerprint, face, or enter device PIN to unlock FamilyVault',
+            'Scan fingerprint, face, or enter device PIN to unlock DocNet',
         biometricOnly: false, // Allows device PIN/pattern fallback
         persistAcrossBackgrounding: true,
       );

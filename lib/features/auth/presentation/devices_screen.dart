@@ -171,7 +171,7 @@ class DevicesScreen extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             'Revoking device authorization prevents future key unwrapping and sync. '
-                            'However, revocation cannot remotely erase unencrypted files previously exported outside FamilyVault.',
+                            'However, revocation cannot remotely erase unencrypted files previously exported outside DocNet.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontSize: 12,
                             ),

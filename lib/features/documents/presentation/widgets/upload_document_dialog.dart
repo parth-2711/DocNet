@@ -118,7 +118,7 @@ void showUploadDocumentDialog(
                     controller: nameController,
                     decoration: const InputDecoration(
                       labelText: 'File Name',
-                      hintText: 'e.g. Passport.pdf, PanCard.png',
+                      hintText: 'e.g. Resume.pdf, Notes.pdf, ID_Card.png',
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -170,7 +170,7 @@ void showUploadDocumentDialog(
                 final bytes =
                     pickedFileBytes ??
                     utf8.encode(
-                      'FamilyVault synthetic encrypted document bytes for ${nameController.text}',
+                      'DocNet synthetic encrypted document bytes for ${nameController.text}',
                     );
 
                 await ref

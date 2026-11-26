@@ -14,6 +14,9 @@ abstract class StorageRepository {
   /// Deletes stored object at reference.
   Future<void> deleteObject(String objectRef);
 
+  /// Syncs a locally stored encrypted object to cloud storage for sharing.
+  Future<void> syncObjectToCloud(String objectRef);
+
   /// Clears all stored objects (e.g. for testing / account wipe).
   Future<void> clearAll();
 }
